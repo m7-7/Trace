@@ -59,21 +59,21 @@ export function ScanningModal({ onClose }: ScanningModalProps) {
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">Scanning Files</h3>
-          <p className="text-neutral-500 dark:text-neutral-400 mt-1">Discovering your memories from local folders</p>
+          <h3 className="text-lg font-semibold text-neutral-800 dark:text-white">Scanning Files</h3>
+          <p className="text-neutral-500 dark:text-neutral-300 mt-1">Discovering your memories from local folders</p>
         </div>
         
         <div className="mb-4">
-          <Progress value={progress} className="h-2" />
-          <div className="flex justify-between mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          <Progress value={progress} className="h-2 dark:bg-gray-800" />
+          <div className="flex justify-between mt-2 text-xs text-neutral-500 dark:text-neutral-300">
             <span>Processing: {filesProcessed} files</span>
             <span>{Math.round(progress)}%</span>
           </div>
         </div>
         
         {currentFolder && (
-          <div className="border border-neutral-100 dark:border-gray-800 rounded-lg p-3 mb-4 bg-neutral-50 dark:bg-gray-800">
-            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+          <div className="border border-neutral-100 dark:border-gray-700 rounded-lg p-3 mb-4 bg-neutral-50 dark:bg-gray-800">
+            <p className="text-sm text-neutral-600 dark:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="inline-block mr-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               </svg>
@@ -87,12 +87,14 @@ export function ScanningModal({ onClose }: ScanningModalProps) {
             variant="outline" 
             onClick={onClose}
             disabled={isScanning}
+            className="rounded-full dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
           >
             Cancel
           </Button>
           <Button 
             onClick={() => setIsScanning(false)} 
             disabled={!isScanning}
+            className="rounded-full dark:bg-primary-600 dark:hover:bg-primary-700 dark:text-white"
           >
             Continue in Background
           </Button>

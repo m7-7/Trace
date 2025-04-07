@@ -149,7 +149,7 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg dark:bg-gray-900 dark:border-gray-800">
         <DialogHeader>
-          <DialogTitle className="dark:text-neutral-100">Import Photos from URL</DialogTitle>
+          <DialogTitle className="dark:text-white">Import Photos from URL</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -168,10 +168,12 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
                   value={url}
                   onChange={handleUrlChange}
                   disabled={isLoading}
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 />
                 <Button 
                   onClick={handleFetchImages} 
                   disabled={isLoading}
+                  className="rounded-full dark:bg-primary-600 dark:hover:bg-primary-700 dark:text-white"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -195,10 +197,12 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
                   value={url}
                   onChange={handleUrlChange}
                   disabled={isLoading}
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 />
                 <Button 
                   onClick={handleFetchImages} 
                   disabled={isLoading}
+                  className="rounded-full dark:bg-primary-600 dark:hover:bg-primary-700 dark:text-white"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -275,13 +279,19 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isImporting}>
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={isImporting} 
+            className="rounded-full dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
+          >
             Cancel
           </Button>
           {imagePreviews.length > 0 && (
             <Button 
               onClick={handleImport} 
               disabled={isImporting || imagePreviews.filter(img => img.selected).length === 0}
+              className="rounded-full dark:bg-primary-600 dark:hover:bg-primary-700 dark:text-white"
             >
               {isImporting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {isImporting ? "Importing..." : "Import Selected"}
