@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
-import { AppContext, ModalType } from "../App";
+import { AppContext, ModalType } from "@/App";
 
 export function Sidebar() {
   const [location] = useLocation();
