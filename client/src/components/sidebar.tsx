@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
-import { AppContext } from "../App";
+import { AppContext, ModalType } from "../App";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -263,13 +263,51 @@ export function Sidebar() {
             </div>
             <div className="space-y-2">
               <label htmlFor="folder-path" className="text-sm font-medium">Folder Path</label>
-              <Input
-                id="folder-path"
-                placeholder="e.g., C:\Users\Username\Pictures"
-                value={newFolderPath}
-                onChange={(e) => setNewFolderPath(e.target.value)}
-              />
-              <p className="text-xs text-neutral-500">Enter the full path to the folder containing your photos</p>
+              <div className="flex gap-2">
+                <Input
+                  id="folder-path"
+                  placeholder="e.g., C:\Users\Username\Pictures"
+                  value={newFolderPath}
+                  onChange={(e) => setNewFolderPath(e.target.value)}
+                />
+                <Button 
+                  size="icon"
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    // Create a hidden file input
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    // Add directory selection attribute
+                    input.setAttribute('webkitdirectory', '');
+                    
+                    // When a folder is selected, update the path
+                    input.onchange = (e) => {
+                      if (input.files && input.files.length > 0) {
+                        // Get folder path from the first file
+                        const file = input.files[0];
+                        // Remove filename from path to get directory
+                        const folderPath = file.webkitRelativePath.split('/')[0];
+                        setNewFolderPath(folderPath);
+                        
+                        // If no folder name set, use the selected folder name
+                        if (!newFolderName) {
+                          setNewFolderName(folderPath);
+                        }
+                      }
+                    };
+                    
+                    // Trigger the file dialog
+                    input.click();
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </Button>
+              </div>
+              <p className="text-xs text-neutral-500">Enter the full path or click + to browse for a folder</p>
             </div>
           </div>
           <DialogFooter>

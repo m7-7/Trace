@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,31 +14,38 @@ import { ScanningModal } from "./components/scanningModal";
 import { CreateAlbumModal } from "./components/createAlbumModal";
 import { ImportFromUrlModal } from "./components/importFromUrlModal";
 
-export type ModalTypes = "none" | "scanning" | "createAlbum" | "importFromUrl";
+// Modal types
+export type ModalType = "none" | "scanning" | "createAlbum" | "importFromUrl";
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/memories" component={Memories} />
-      <Route path="/favorites" component={Favorites} />
-      <Route path="/albums/:id" component={AlbumView} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+// App context type
+interface AppContextInterface {
+  openModal: (modal: ModalType) => void;
 }
 
+// Create the context with a default value
+export const AppContext = createContext<AppContextInterface>({
+  openModal: () => {},
+});
+
+// Create app component
 function App() {
-  const [activeModal, setActiveModal] = useState<ModalTypes>("none");
+  const [activeModal, setActiveModal] = useState<ModalType>("none");
   
-  const openModal = (modalType: ModalTypes) => setActiveModal(modalType);
+  const openModal = (modal: ModalType) => setActiveModal(modal);
   const closeModal = () => setActiveModal("none");
   
   return (
     <QueryClientProvider client={queryClient}>
       <AppContext.Provider value={{ openModal }}>
         <div className="relative">
-          <Router />
+          {/* Router */}
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/memories" component={Memories} />
+            <Route path="/favorites" component={Favorites} />
+            <Route path="/albums/:id" component={AlbumView} />
+            <Route component={NotFound} />
+          </Switch>
           
           {/* Modals */}
           {activeModal === "scanning" && (
@@ -58,14 +65,5 @@ function App() {
     </QueryClientProvider>
   );
 }
-
-// Context for globally accessible functions
-type AppContextType = {
-  openModal: (modalType: ModalTypes) => void;
-};
-
-export const AppContext = createContext<AppContextType>({
-  openModal: () => {},
-});
 
 export default App;

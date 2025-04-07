@@ -666,22 +666,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Ensure uploads directory exists
           await fs.promises.mkdir(path.join(process.cwd(), 'uploads'), { recursive: true });
           
-          // Instead of actual downloading, we just create a placeholder for now
-          // This would be replaced with actual HTTP download logic in production
+          // Download the image from the URL
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image from URL: ${response.status} ${response.statusText}`);
+          }
+          
+          // Get the file buffer and save it
+          const buffer = await response.arrayBuffer();
+          await fs.promises.writeFile(filePath, Buffer.from(buffer));
+          
+          // Get file size
+          const stats = await fs.promises.stat(filePath);
+          
+          // Extract domain from URL for tags
+          let domain = "";
+          try {
+            const urlObj = new URL(url);
+            domain = urlObj.hostname;
+          } catch {
+            domain = "unknown";
+          }
+          
           const photoData = {
             filePath,
             fileName,
             fileType: 'image',
-            fileSize: 0, // Would be determined from actual download
-            width: 0, 
-            height: 0,
+            fileSize: stats.size,
+            width: 0, // Would be better determined with image processing library
+            height: 0, // Would be better determined with image processing library
             createdAt: new Date(),
             favorite: false,
             location: null,
             metadata: { originalUrl: url },
-            contentTags: [],
+            contentTags: [`imported`, `from:${domain}`],
             indexed: true,
-            description: `Imported from ${url}`
+            description: `Imported from ${domain}`
           };
           
           // Create photo record
