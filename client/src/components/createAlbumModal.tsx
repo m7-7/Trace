@@ -193,16 +193,16 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
   
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
+      <DialogContent className="sm:max-w-md app-modal">
         <DialogHeader>
-          <DialogTitle className="dark:text-neutral-100">Create Memory Album</DialogTitle>
+          <DialogTitle className="app-modal-title">Create Memory Album</DialogTitle>
         </DialogHeader>
         
         <div className="mb-4">
-          <label htmlFor="album-name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Album Name</label>
+          <label htmlFor="album-name" className="app-modal-label mb-1">Album Name</label>
           <Input
             id="album-name"
-            className="w-full"
+            className="w-full app-modal-input"
             placeholder="e.g., Winter Morning Coffee"
             value={albumName}
             onChange={(e) => setAlbumName(e.target.value)}
@@ -224,7 +224,7 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
           
           <TabsContent value="manual" className="pt-3">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Search Terms</label>
+              <label className="app-modal-label mb-1">Search Terms</label>
               <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 dark:border-gray-700 rounded-lg mb-2 bg-neutral-50 dark:bg-gray-800 min-h-[60px]">
                 {searchTerms.map(tag => (
                   <Badge key={tag.term} variant="secondary" className={`${getTagColor(tag.category)} hover:opacity-90`}>
@@ -312,7 +312,7 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="dark:bg-gray-800 dark:border-gray-700"
+                    className="app-modal-input"
                   />
                 </div>
                 <div>
@@ -322,7 +322,7 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate}
-                    className="dark:bg-gray-800 dark:border-gray-700"
+                    className="app-modal-input"
                   />
                 </div>
               </div>
@@ -368,10 +368,10 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
         </Tabs>
         
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isCreating}>
+          <Button variant="outline" onClick={onClose} disabled={isCreating} className="app-modal-button-secondary">
             Cancel
           </Button>
-          <Button onClick={handleCreateAlbum} disabled={isCreating}>
+          <Button onClick={handleCreateAlbum} disabled={isCreating} className="app-modal-button-primary">
             {isCreating ? "Creating..." : "Create Album"}
           </Button>
         </DialogFooter>

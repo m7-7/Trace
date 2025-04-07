@@ -20,11 +20,11 @@ export default function Home() {
       <Sidebar />
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-neutral-50 dark:bg-gray-900">
+      <div className="flex-1 flex flex-col overflow-hidden bg-neutral-50">
         <Header />
         
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 dark:bg-gray-800 dark:text-white">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 app-content">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Your Memories</h1>
             <Button onClick={() => openModal("createAlbum")}>

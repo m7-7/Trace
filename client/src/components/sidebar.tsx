@@ -74,7 +74,7 @@ export function Sidebar() {
   return (
     <>
       <div 
-        className={`sidebar fixed md:relative w-64 h-full bg-white dark:bg-gray-900 dark:text-white border-r border-neutral-100 dark:border-gray-700 shadow-sm z-20 md:transform-none ${
+        className={`sidebar app-sidebar fixed md:relative w-64 h-full bg-white border-r border-neutral-100 shadow-sm z-20 md:transform-none ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         } transition-transform duration-300 ease-in-out`}
       >
