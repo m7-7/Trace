@@ -5,7 +5,12 @@ import path from "path";
 import fs from "fs";
 import { promisify } from "util";
 import { analyzeImage, initializeModel } from "./imageRecognition";
-import { insertPhotoSchema, insertFolderSchema, insertAlbumSchema } from "@shared/schema";
+import { 
+  insertPhotoSchema, 
+  insertFolderSchema, 
+  insertAlbumSchema,
+  insertJournalEntrySchema
+} from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 
@@ -383,6 +388,195 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting album:', error);
       res.status(500).json({ message: 'Failed to delete album' });
+    }
+  });
+  
+  // Journal entries endpoints
+  // Get all journal entries or filtered by date range
+  app.get('/api/journal', async (req: Request, res: Response) => {
+    try {
+      let startDate: Date | undefined;
+      let endDate: Date | undefined;
+      
+      if (req.query.startDate) {
+        startDate = new Date(req.query.startDate as string);
+      }
+      
+      if (req.query.endDate) {
+        endDate = new Date(req.query.endDate as string);
+      }
+      
+      const entries = await storage.getJournalEntries(startDate, endDate);
+      res.json(entries);
+    } catch (error) {
+      console.error('Error fetching journal entries:', error);
+      res.status(500).json({ message: 'Failed to fetch journal entries' });
+    }
+  });
+  
+  // Get journal entry by ID
+  app.get('/api/journal/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entry = await storage.getJournalEntryById(id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: 'Journal entry not found' });
+      }
+      
+      res.json(entry);
+    } catch (error) {
+      console.error('Error fetching journal entry:', error);
+      res.status(500).json({ message: 'Failed to fetch journal entry' });
+    }
+  });
+  
+  // Get journal entries for a specific photo
+  app.get('/api/photos/:id/journal', async (req: Request, res: Response) => {
+    try {
+      const photoId = parseInt(req.params.id);
+      const photo = await storage.getPhotoById(photoId);
+      
+      if (!photo) {
+        return res.status(404).json({ message: 'Photo not found' });
+      }
+      
+      const entries = await storage.getJournalEntriesByPhotoId(photoId);
+      res.json(entries);
+    } catch (error) {
+      console.error('Error fetching photo journal entries:', error);
+      res.status(500).json({ message: 'Failed to fetch photo journal entries' });
+    }
+  });
+  
+  // Create a new journal entry
+  app.post('/api/journal', async (req: Request, res: Response) => {
+    try {
+      const entryData = insertJournalEntrySchema.parse({
+        ...req.body,
+        createdAt: new Date()
+      });
+      
+      const entry = await storage.createJournalEntry(entryData);
+      res.status(201).json(entry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const readableError = fromZodError(error);
+        return res.status(400).json({ message: 'Invalid journal entry data', errors: readableError.message });
+      }
+      
+      console.error('Error creating journal entry:', error);
+      res.status(500).json({ message: 'Failed to create journal entry' });
+    }
+  });
+  
+  // Update a journal entry
+  app.put('/api/journal/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entry = await storage.getJournalEntryById(id);
+      
+      if (!entry) {
+        return res.status(404).json({ message: 'Journal entry not found' });
+      }
+      
+      const entryData = req.body;
+      const updatedEntry = await storage.updateJournalEntry(id, entryData);
+      res.json(updatedEntry);
+    } catch (error) {
+      console.error('Error updating journal entry:', error);
+      res.status(500).json({ message: 'Failed to update journal entry' });
+    }
+  });
+  
+  // Delete a journal entry
+  app.delete('/api/journal/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteJournalEntry(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Journal entry not found' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting journal entry:', error);
+      res.status(500).json({ message: 'Failed to delete journal entry' });
+    }
+  });
+
+  // Add description to photo (a "trace")
+  app.put('/api/photos/:id/description', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const photo = await storage.getPhotoById(id);
+      
+      if (!photo) {
+        return res.status(404).json({ message: 'Photo not found' });
+      }
+      
+      const { description } = req.body;
+      
+      if (typeof description !== 'string') {
+        return res.status(400).json({ message: 'Description must be a string' });
+      }
+      
+      const updatedPhoto = await storage.updatePhoto(id, { description });
+      res.json(updatedPhoto);
+    } catch (error) {
+      console.error('Error updating photo description:', error);
+      res.status(500).json({ message: 'Failed to update photo description' });
+    }
+  });
+  
+  // Add description to folder (a "trace")
+  app.put('/api/folders/:id/description', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const folder = await storage.getFolderById(id);
+      
+      if (!folder) {
+        return res.status(404).json({ message: 'Folder not found' });
+      }
+      
+      const { description } = req.body;
+      
+      if (typeof description !== 'string') {
+        return res.status(400).json({ message: 'Description must be a string' });
+      }
+      
+      // We need to add this method to the storage interface
+      const updatedFolder = await storage.updateFolder(id, { description });
+      res.json(updatedFolder);
+    } catch (error) {
+      console.error('Error updating folder description:', error);
+      res.status(500).json({ message: 'Failed to update folder description' });
+    }
+  });
+  
+  // Add description to album (a "trace")
+  app.put('/api/albums/:id/description', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const album = await storage.getAlbumById(id);
+      
+      if (!album) {
+        return res.status(404).json({ message: 'Album not found' });
+      }
+      
+      const { description } = req.body;
+      
+      if (typeof description !== 'string') {
+        return res.status(400).json({ message: 'Description must be a string' });
+      }
+      
+      // We need to add this method to the storage interface
+      const updatedAlbum = await storage.updateAlbum(id, { description });
+      res.json(updatedAlbum);
+    } catch (error) {
+      console.error('Error updating album description:', error);
+      res.status(500).json({ message: 'Failed to update album description' });
     }
   });
   

@@ -3,7 +3,8 @@ import {
   photos, type Photo, type InsertPhoto,
   folders, type Folder, type InsertFolder,
   albums, type Album, type InsertAlbum,
-  albumPhotos, type AlbumPhoto, type InsertAlbumPhoto
+  albumPhotos, type AlbumPhoto, type InsertAlbumPhoto,
+  journalEntries, type JournalEntry, type InsertJournalEntry
 } from "@shared/schema";
 
 // Storage interface for CRUD operations
@@ -26,7 +27,9 @@ export interface IStorage {
   
   // Folder operations
   getFolders(): Promise<Folder[]>;
+  getFolderById(id: number): Promise<Folder | undefined>;
   addFolder(folder: InsertFolder): Promise<Folder>;
+  updateFolder(id: number, folder: Partial<InsertFolder>): Promise<Folder | undefined>;
   updateFolderScanTime(id: number, time: Date): Promise<Folder | undefined>;
   deleteFolder(id: number): Promise<boolean>;
   
@@ -35,9 +38,18 @@ export interface IStorage {
   getAlbumById(id: number): Promise<Album | undefined>;
   getAlbumPhotos(albumId: number): Promise<Photo[]>;
   createAlbum(album: InsertAlbum): Promise<Album>;
+  updateAlbum(id: number, album: Partial<InsertAlbum>): Promise<Album | undefined>;
   addPhotoToAlbum(albumId: number, photoId: number): Promise<AlbumPhoto>;
   removePhotoFromAlbum(albumId: number, photoId: number): Promise<boolean>;
   deleteAlbum(id: number): Promise<boolean>;
+  
+  // Journal operations
+  getJournalEntries(startDate?: Date, endDate?: Date): Promise<JournalEntry[]>;
+  getJournalEntryById(id: number): Promise<JournalEntry | undefined>;
+  createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry>;
+  updateJournalEntry(id: number, entry: Partial<InsertJournalEntry>): Promise<JournalEntry | undefined>;
+  deleteJournalEntry(id: number): Promise<boolean>;
+  getJournalEntriesByPhotoId(photoId: number): Promise<JournalEntry[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -46,12 +58,14 @@ export class MemStorage implements IStorage {
   private folders: Map<number, Folder>;
   private albums: Map<number, Album>;
   private albumPhotos: Map<number, AlbumPhoto>;
+  private journalEntries: Map<number, JournalEntry>;
   
   private userCurrentId: number;
   private photoCurrentId: number;
   private folderCurrentId: number;
   private albumCurrentId: number;
   private albumPhotoCurrentId: number;
+  private journalEntryCurrentId: number;
 
   constructor() {
     this.users = new Map();
@@ -59,12 +73,14 @@ export class MemStorage implements IStorage {
     this.folders = new Map();
     this.albums = new Map();
     this.albumPhotos = new Map();
+    this.journalEntries = new Map();
     
     this.userCurrentId = 1;
     this.photoCurrentId = 1;
     this.folderCurrentId = 1;
     this.albumCurrentId = 1;
     this.albumPhotoCurrentId = 1;
+    this.journalEntryCurrentId = 1;
   }
 
   // User methods (keeping the original implementations)
@@ -137,7 +153,21 @@ export class MemStorage implements IStorage {
   
   async createPhoto(insertPhoto: InsertPhoto): Promise<Photo> {
     const id = this.photoCurrentId++;
-    const photo: Photo = { ...insertPhoto, id };
+    // Ensure all required fields have non-undefined values
+    const photo: Photo = { 
+      ...insertPhoto, 
+      id,
+      width: insertPhoto.width || null,
+      height: insertPhoto.height || null,
+      favorite: insertPhoto.favorite || false,
+      description: insertPhoto.description || null,
+      location: insertPhoto.location || null,
+      contentTags: insertPhoto.contentTags || [],
+      coordinates: insertPhoto.coordinates || null,
+      metadata: insertPhoto.metadata || null,
+      journalEntry: insertPhoto.journalEntry || null,
+      indexed: insertPhoto.indexed || false
+    };
     this.photos.set(id, photo);
     return photo;
   }
@@ -176,11 +206,30 @@ export class MemStorage implements IStorage {
     return Array.from(this.folders.values());
   }
   
+  async getFolderById(id: number): Promise<Folder | undefined> {
+    return this.folders.get(id);
+  }
+  
   async addFolder(insertFolder: InsertFolder): Promise<Folder> {
     const id = this.folderCurrentId++;
-    const folder: Folder = { ...insertFolder, id, lastScanned: null };
+    const folder: Folder = { 
+      ...insertFolder, 
+      id, 
+      lastScanned: null,
+      description: insertFolder.description || null,
+      active: insertFolder.active || null
+    };
     this.folders.set(id, folder);
     return folder;
+  }
+  
+  async updateFolder(id: number, folderUpdate: Partial<InsertFolder>): Promise<Folder | undefined> {
+    const folder = this.folders.get(id);
+    if (!folder) return undefined;
+    
+    const updatedFolder = { ...folder, ...folderUpdate };
+    this.folders.set(id, updatedFolder);
+    return updatedFolder;
   }
   
   async updateFolderScanTime(id: number, time: Date): Promise<Folder | undefined> {
@@ -216,9 +265,26 @@ export class MemStorage implements IStorage {
   
   async createAlbum(insertAlbum: InsertAlbum): Promise<Album> {
     const id = this.albumCurrentId++;
-    const album: Album = { ...insertAlbum, id };
+    const album: Album = { 
+      ...insertAlbum, 
+      id,
+      description: insertAlbum.description || null,
+      searchTerms: insertAlbum.searchTerms || null,
+      dateRangeStart: insertAlbum.dateRangeStart || null,
+      dateRangeEnd: insertAlbum.dateRangeEnd || null,
+      coverPhotoId: insertAlbum.coverPhotoId || null
+    };
     this.albums.set(id, album);
     return album;
+  }
+  
+  async updateAlbum(id: number, albumUpdate: Partial<InsertAlbum>): Promise<Album | undefined> {
+    const album = this.albums.get(id);
+    if (!album) return undefined;
+    
+    const updatedAlbum = { ...album, ...albumUpdate };
+    this.albums.set(id, updatedAlbum);
+    return updatedAlbum;
   }
   
   async addPhotoToAlbum(albumId: number, photoId: number): Promise<AlbumPhoto> {
@@ -246,6 +312,55 @@ export class MemStorage implements IStorage {
     }
     
     return this.albums.delete(id);
+  }
+  
+  // Journal methods
+  async getJournalEntries(startDate?: Date, endDate?: Date): Promise<JournalEntry[]> {
+    let entries = Array.from(this.journalEntries.values())
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+      
+    if (startDate && endDate) {
+      entries = entries.filter(entry => 
+        entry.date >= startDate && entry.date <= endDate
+      );
+    }
+    
+    return entries;
+  }
+  
+  async getJournalEntryById(id: number): Promise<JournalEntry | undefined> {
+    return this.journalEntries.get(id);
+  }
+  
+  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    const id = this.journalEntryCurrentId++;
+    const journalEntry: JournalEntry = { 
+      ...entry, 
+      id,
+      photoId: entry.photoId || null,
+      mood: entry.mood || null 
+    };
+    this.journalEntries.set(id, journalEntry);
+    return journalEntry;
+  }
+  
+  async updateJournalEntry(id: number, entryUpdate: Partial<InsertJournalEntry>): Promise<JournalEntry | undefined> {
+    const entry = this.journalEntries.get(id);
+    if (!entry) return undefined;
+    
+    const updatedEntry = { ...entry, ...entryUpdate };
+    this.journalEntries.set(id, updatedEntry);
+    return updatedEntry;
+  }
+  
+  async deleteJournalEntry(id: number): Promise<boolean> {
+    return this.journalEntries.delete(id);
+  }
+  
+  async getJournalEntriesByPhotoId(photoId: number): Promise<JournalEntry[]> {
+    return Array.from(this.journalEntries.values())
+      .filter(entry => entry.photoId === photoId)
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 }
 

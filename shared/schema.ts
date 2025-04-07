@@ -25,7 +25,10 @@ export const photos = pgTable("photos", {
   width: integer("width"),
   height: integer("height"),
   favorite: boolean("favorite").default(false),
-  location: text("location"),
+  description: text("description"), // User provided description or "trace"
+  location: text("location"), // Location name
+  coordinates: jsonb("coordinates"), // Lat/long coordinates {lat: number, lng: number}
+  journalEntry: text("journal_entry"), // User's feelings or notes for the day
   metadata: jsonb("metadata"), // Stores EXIF and other metadata
   contentTags: text("content_tags").array(), // Tags from image recognition
   indexed: boolean("indexed").default(false) // Whether the photo has been analyzed
@@ -40,6 +43,7 @@ export const folders = pgTable("folders", {
   id: serial("id").primaryKey(),
   path: text("path").notNull().unique(),
   name: text("name").notNull(),
+  description: text("description"), // User provided description or "trace"
   lastScanned: timestamp("last_scanned"),
   active: boolean("active").default(true)
 });
@@ -53,6 +57,7 @@ export const insertFolderSchema = createInsertSchema(folders).omit({
 export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  description: text("description"), // User provided description or "trace"
   searchTerms: text("search_terms").array(),
   dateRangeStart: timestamp("date_range_start"),
   dateRangeEnd: timestamp("date_range_end"),
@@ -75,6 +80,20 @@ export const insertAlbumPhotoSchema = createInsertSchema(albumPhotos).omit({
   id: true
 });
 
+// Journal entries
+export const journalEntries = pgTable("journal_entries", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").notNull(),
+  content: text("content").notNull(), // The journal text
+  mood: text("mood"), // Optional mood indicator
+  photoId: integer("photo_id"), // Optional associated photo
+  createdAt: timestamp("created_at").notNull()
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
+  id: true
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -90,3 +109,6 @@ export type InsertAlbum = z.infer<typeof insertAlbumSchema>;
 
 export type AlbumPhoto = typeof albumPhotos.$inferSelect;
 export type InsertAlbumPhoto = z.infer<typeof insertAlbumPhotoSchema>;
+
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
