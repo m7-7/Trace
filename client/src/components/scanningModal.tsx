@@ -51,29 +51,29 @@ export function ScanningModal({ onClose }: ScanningModalProps) {
   
   return (
     <Dialog open={true} onOpenChange={() => isScanning ? null : onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-primary-50 text-primary-500 mb-4">
+          <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-primary-50 dark:bg-primary-900/40 text-primary-500 dark:text-primary-400 mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-neutral-800">Scanning Files</h3>
-          <p className="text-neutral-500 mt-1">Discovering your memories from local folders</p>
+          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">Scanning Files</h3>
+          <p className="text-neutral-500 dark:text-neutral-400 mt-1">Discovering your memories from local folders</p>
         </div>
         
         <div className="mb-4">
           <Progress value={progress} className="h-2" />
-          <div className="flex justify-between mt-2 text-xs text-neutral-500">
+          <div className="flex justify-between mt-2 text-xs text-neutral-500 dark:text-neutral-400">
             <span>Processing: {filesProcessed} files</span>
             <span>{Math.round(progress)}%</span>
           </div>
         </div>
         
         {currentFolder && (
-          <div className="border border-neutral-100 rounded-lg p-3 mb-4 bg-neutral-50">
-            <p className="text-sm text-neutral-600">
+          <div className="border border-neutral-100 dark:border-gray-800 rounded-lg p-3 mb-4 bg-neutral-50 dark:bg-gray-800">
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
               <svg xmlns="http://www.w3.org/2000/svg" className="inline-block mr-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               </svg>

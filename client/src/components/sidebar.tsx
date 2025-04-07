@@ -69,13 +69,13 @@ export function Sidebar() {
   return (
     <>
       <div 
-        className={`sidebar fixed md:relative w-64 h-full bg-white border-r border-neutral-100 shadow-sm z-20 md:transform-none ${
+        className={`sidebar fixed md:relative w-64 h-full bg-white dark:bg-gray-900 border-r border-neutral-100 dark:border-gray-800 shadow-sm z-20 md:transform-none ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         } transition-transform duration-300 ease-in-out`}
       >
         <div className="flex flex-col h-full">
           {/* Logo and App Name */}
-          <div className="flex items-center p-4 border-b border-neutral-100">
+          <div className="flex items-center p-4 border-b border-neutral-100 dark:border-gray-800">
             <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
               <span className="text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -87,17 +87,17 @@ export function Sidebar() {
                 </svg>
               </span>
             </div>
-            <h1 className="ml-3 text-xl font-semibold text-neutral-700">Trace</h1>
+            <h1 className="ml-3 text-xl font-semibold text-neutral-700 dark:text-neutral-100">Trace</h1>
           </div>
           
           {/* Navigation Menu */}
           <nav className="flex-1 overflow-y-auto p-2">
             <div className="mb-4">
-              <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-3 mb-2">Library</h2>
+              <h2 className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-3 mb-2">Library</h2>
               <ul>
                 <li>
                   <Link href="/">
-                    <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${isActive("/") ? "bg-primary-50 text-primary-500 border-r-3 border-primary-500" : "hover:bg-neutral-50"}`}>
+                    <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${isActive("/") ? "bg-primary-50 dark:bg-primary-900/40 text-primary-500 dark:text-primary-400 border-r-3 border-primary-500" : "hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200"}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -109,7 +109,7 @@ export function Sidebar() {
                 </li>
                 <li>
                   <Link href="/memories">
-                    <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${isActive("/memories") ? "bg-primary-50 text-primary-500 border-r-3 border-primary-500" : "hover:bg-neutral-50"}`}>
+                    <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${isActive("/memories") ? "bg-primary-50 dark:bg-primary-900/40 text-primary-500 dark:text-primary-400 border-r-3 border-primary-500" : "hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200"}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                         <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -122,7 +122,7 @@ export function Sidebar() {
                 </li>
                 <li>
                   <Link href="/favorites">
-                    <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${isActive("/favorites") ? "bg-primary-50 text-primary-500 border-r-3 border-primary-500" : "hover:bg-neutral-50"}`}>
+                    <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${isActive("/favorites") ? "bg-primary-50 dark:bg-primary-900/40 text-primary-500 dark:text-primary-400 border-r-3 border-primary-500" : "hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200"}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                       </svg>
@@ -134,11 +134,11 @@ export function Sidebar() {
             </div>
             
             <div className="mb-4">
-              <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-3 mb-2">Categories</h2>
+              <h2 className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-3 mb-2">Categories</h2>
               <ul>
                 <li>
                   <Link href="/?category=nature">
-                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 18v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path>
                         <path d="M12 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path>
@@ -149,7 +149,7 @@ export function Sidebar() {
                 </li>
                 <li>
                   <Link href="/?category=food">
-                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
                         <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
@@ -163,7 +163,7 @@ export function Sidebar() {
                 </li>
                 <li>
                   <Link href="/?category=people">
-                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                         <circle cx="9" cy="7" r="4"></circle>
@@ -176,7 +176,7 @@ export function Sidebar() {
                 </li>
                 <li>
                   <Link href="/?category=places">
-                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+                    <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
@@ -189,12 +189,12 @@ export function Sidebar() {
             </div>
             
             <div className="mb-4">
-              <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-3 mb-2">Folders</h2>
+              <h2 className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-3 mb-2">Folders</h2>
               <ul>
                 {folders.map(folder => (
                   <li key={folder.id}>
                     <Link href={`/?folder=${folder.id}`}>
-                      <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+                      <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                         </svg>
@@ -206,7 +206,7 @@ export function Sidebar() {
                 <li>
                   <button 
                     onClick={() => setAddFolderOpen(true)}
-                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-primary-500 hover:bg-neutral-50 w-full text-left"
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-primary-500 hover:bg-neutral-50 dark:hover:bg-gray-800 w-full text-left"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -218,7 +218,7 @@ export function Sidebar() {
                 <li>
                   <button 
                     onClick={() => openModal("importFromUrl")}
-                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-primary-500 hover:bg-neutral-50 w-full text-left"
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-primary-500 hover:bg-neutral-50 dark:hover:bg-gray-800 w-full text-left"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -233,8 +233,8 @@ export function Sidebar() {
           </nav>
           
           {/* Settings */}
-          <div className="p-3 border-t border-neutral-100">
-            <div className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+          <div className="p-3 border-t border-neutral-100 dark:border-gray-800">
+            <div className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -247,13 +247,13 @@ export function Sidebar() {
       
       {/* Add Folder Dialog */}
       <Dialog open={addFolderOpen} onOpenChange={setAddFolderOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
           <DialogHeader>
-            <DialogTitle>Add Folder</DialogTitle>
+            <DialogTitle className="dark:text-neutral-100">Add Folder</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label htmlFor="folder-name" className="text-sm font-medium">Folder Name</label>
+              <label htmlFor="folder-name" className="text-sm font-medium dark:text-neutral-200">Folder Name</label>
               <Input
                 id="folder-name"
                 placeholder="e.g., Photos 2023"
@@ -262,7 +262,7 @@ export function Sidebar() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="folder-path" className="text-sm font-medium">Folder Path</label>
+              <label htmlFor="folder-path" className="text-sm font-medium dark:text-neutral-200">Folder Path</label>
               <div className="flex gap-2">
                 <Input
                   id="folder-path"
@@ -317,7 +317,7 @@ export function Sidebar() {
                   </svg>
                 </Button>
               </div>
-              <p className="text-xs text-neutral-500">Enter the full path or click + to browse for a folder</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Enter the full path or click + to browse for a folder</p>
             </div>
           </div>
           <DialogFooter>

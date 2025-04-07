@@ -193,9 +193,9 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
   
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
         <DialogHeader>
-          <DialogTitle>Create Memory Album</DialogTitle>
+          <DialogTitle className="dark:text-neutral-100">Create Memory Album</DialogTitle>
         </DialogHeader>
         
         <div className="mb-4">

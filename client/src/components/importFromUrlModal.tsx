@@ -147,9 +147,9 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg dark:bg-gray-900 dark:border-gray-800">
         <DialogHeader>
-          <DialogTitle>Import Photos from URL</DialogTitle>
+          <DialogTitle className="dark:text-neutral-100">Import Photos from URL</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -237,11 +237,11 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
                 <div 
                   key={image.id}
                   className={`relative rounded-md overflow-hidden group cursor-pointer border ${
-                    image.selected ? 'ring-2 ring-primary border-transparent' : 'border-neutral-200'
+                    image.selected ? 'ring-2 ring-primary border-transparent' : 'border-neutral-200 dark:border-gray-700'
                   }`}
                   onClick={() => toggleImageSelection(image.id)}
                 >
-                  <div className="aspect-square bg-neutral-100 relative">
+                  <div className="aspect-square bg-neutral-100 dark:bg-gray-800 relative">
                     <img 
                       src={image.url} 
                       alt={`Preview ${image.id}`}
@@ -266,9 +266,9 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
 
         {imagePreviews.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <Image className="h-16 w-16 text-neutral-300" />
-            <h3 className="mt-4 text-sm font-medium text-neutral-900">No images yet</h3>
-            <p className="mt-1 text-sm text-neutral-500">
+            <Image className="h-16 w-16 text-neutral-300 dark:text-neutral-700" />
+            <h3 className="mt-4 text-sm font-medium text-neutral-900 dark:text-neutral-100">No images yet</h3>
+            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
               Enter a URL and click "Fetch" to load images
             </p>
           </div>
