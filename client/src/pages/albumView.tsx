@@ -134,7 +134,7 @@ export default function AlbumView() {
       <Sidebar />
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-neutral-50">
+      <div className="flex-1 flex flex-col overflow-hidden bg-neutral-50 dark:bg-gray-900">
         <Header />
         
         {/* Content Area */}
@@ -147,15 +147,15 @@ export default function AlbumView() {
           ) : album ? (
             <div className="mb-6 flex justify-between items-start">
               <div>
-                <h1 className="text-2xl font-bold text-neutral-800">{album.name}</h1>
-                <div className="flex flex-wrap items-center gap-2 text-neutral-500">
+                <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{album.name}</h1>
+                <div className="flex flex-wrap items-center gap-2 text-neutral-500 dark:text-neutral-400">
                   <span>Created: {formatDate(album.createdAt)}</span>
                   {album.searchTerms && album.searchTerms.length > 0 && (
                     <>
                       <span className="hidden sm:inline">•</span>
                       <div className="flex flex-wrap gap-1">
                         {album.searchTerms.map(term => (
-                          <Badge key={term} variant="outline" className="bg-neutral-100">
+                          <Badge key={term} variant="outline" className="bg-neutral-100 dark:bg-gray-800 dark:text-neutral-200">
                             {term}
                           </Badge>
                         ))}
@@ -168,7 +168,7 @@ export default function AlbumView() {
               <Button 
                 variant="outline" 
                 size="icon"
-                className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:border-red-800"
                 onClick={() => setDeleteDialogOpen(true)}
               >
                 <Trash2 size={18} />
@@ -176,8 +176,8 @@ export default function AlbumView() {
             </div>
           ) : (
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-neutral-800">Album Not Found</h1>
-              <p className="text-neutral-500">This album may have been deleted or doesn't exist</p>
+              <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Album Not Found</h1>
+              <p className="text-neutral-500 dark:text-neutral-400">This album may have been deleted or doesn't exist</p>
             </div>
           )}
           
@@ -186,10 +186,10 @@ export default function AlbumView() {
           {/* Related Memories Section */}
           {relatedAlbums.length > 0 && (
             <div className="mt-8 mb-4">
-              <h2 className="text-xl font-semibold text-neutral-700 mb-4">Related Memories</h2>
+              <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4">Related Memories</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {relatedAlbums.map(relatedAlbum => (
-                  <Card key={relatedAlbum.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <Card key={relatedAlbum.id} className="overflow-hidden hover:shadow-md transition-shadow dark:border-gray-800">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg">{relatedAlbum.name}</CardTitle>
                       <CardDescription>{relatedAlbum.matchReason}</CardDescription>
@@ -197,7 +197,7 @@ export default function AlbumView() {
                     <CardFooter className="pt-2 justify-end">
                       <Button 
                         variant="ghost" 
-                        className="text-primary-600" 
+                        className="text-primary-600 dark:text-primary-400" 
                         onClick={() => navigate(`/albums/${relatedAlbum.id}`)}
                       >
                         View Album <ArrowRight size={16} className="ml-1" />
@@ -213,18 +213,18 @@ export default function AlbumView() {
           <div className="mt-8 mb-4 flex justify-center">
             <Button 
               variant="outline" 
-              className="border-dashed border-2 h-auto py-6 px-8"
+              className="border-dashed border-2 h-auto py-6 px-8 dark:border-gray-700 dark:hover:border-gray-600"
               onClick={() => openModal("createAlbum")}
             >
               <div className="flex flex-col items-center">
-                <div className="h-12 w-12 rounded-full bg-primary-50 flex items-center justify-center mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
+                <div className="h-12 w-12 rounded-full bg-primary-50 dark:bg-primary-950 flex items-center justify-center mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500 dark:text-primary-400">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                   </svg>
                 </div>
                 <span className="text-lg font-medium">Create New Memory</span>
-                <span className="text-sm text-neutral-500">Organize more of your precious moments</span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">Organize more of your precious moments</span>
               </div>
             </Button>
           </div>

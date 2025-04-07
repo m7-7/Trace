@@ -23,14 +23,14 @@ interface TagInfo {
   category: TagCategory;
 }
 
-// Mood categories with predefined terms
+// Mood categories with predefined terms (with dark mode support)
 const moodCategories = [
-  { name: "Happy", color: "bg-yellow-100 text-yellow-800", terms: ["happy", "joy", "celebration", "smile", "fun"] },
-  { name: "Calm", color: "bg-blue-100 text-blue-800", terms: ["calm", "peaceful", "serene", "quiet", "relaxed"] },
-  { name: "Energetic", color: "bg-orange-100 text-orange-800", terms: ["energetic", "active", "exciting", "adventure"] },
-  { name: "Nostalgic", color: "bg-purple-100 text-purple-800", terms: ["nostalgic", "memories", "throwback", "vintage"] },
-  { name: "Romantic", color: "bg-red-100 text-red-800", terms: ["romantic", "love", "couple", "date", "anniversary"] },
-  { name: "Contemplative", color: "bg-teal-100 text-teal-800", terms: ["thoughtful", "reflective", "introspective"] }
+  { name: "Happy", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100", terms: ["happy", "joy", "celebration", "smile", "fun"] },
+  { name: "Calm", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100", terms: ["calm", "peaceful", "serene", "quiet", "relaxed"] },
+  { name: "Energetic", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100", terms: ["energetic", "active", "exciting", "adventure"] },
+  { name: "Nostalgic", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100", terms: ["nostalgic", "memories", "throwback", "vintage"] },
+  { name: "Romantic", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100", terms: ["romantic", "love", "couple", "date", "anniversary"] },
+  { name: "Contemplative", color: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100", terms: ["thoughtful", "reflective", "introspective"] }
 ];
 
 export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModalProps) {
@@ -44,16 +44,16 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
   const [activeTab, setActiveTab] = useState("manual");
   const [selectedMood, setSelectedMood] = useState("");
   
-  // Get tag color based on category
+  // Get tag color based on category (with dark mode support)
   const getTagColor = (category: TagCategory): string => {
     switch(category) {
-      case 'nature': return "bg-green-100 text-green-800";
-      case 'mood': return "bg-yellow-100 text-yellow-800";
-      case 'event': return "bg-orange-100 text-orange-800";
-      case 'time': return "bg-blue-100 text-blue-800";
-      case 'people': return "bg-purple-100 text-purple-800";
-      case 'place': return "bg-indigo-100 text-indigo-800";
-      default: return "bg-gray-100 text-gray-800";
+      case 'nature': return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
+      case 'mood': return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
+      case 'event': return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
+      case 'time': return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
+      case 'people': return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
+      case 'place': return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100";
     }
   };
   
@@ -199,7 +199,7 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
         </DialogHeader>
         
         <div className="mb-4">
-          <label htmlFor="album-name" className="block text-sm font-medium text-neutral-700 mb-1">Album Name</label>
+          <label htmlFor="album-name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Album Name</label>
           <Input
             id="album-name"
             className="w-full"
@@ -224,14 +224,14 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
           
           <TabsContent value="manual" className="pt-3">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Search Terms</label>
-              <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 rounded-lg mb-2 bg-neutral-50 min-h-[60px]">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Search Terms</label>
+              <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 dark:border-gray-700 rounded-lg mb-2 bg-neutral-50 dark:bg-gray-800 min-h-[60px]">
                 {searchTerms.map(tag => (
                   <Badge key={tag.term} variant="secondary" className={`${getTagColor(tag.category)} hover:opacity-90`}>
                     {tag.term}
                     <button
                       onClick={() => handleRemoveTerm(tag.term)}
-                      className="ml-1 hover:text-red-700"
+                      className="ml-1 hover:text-red-700 dark:hover:text-red-300"
                     >
                       <X size={14} />
                     </button>
@@ -247,13 +247,13 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
               </div>
               
               <div className="mt-3">
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Suggested Terms</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Suggested Terms</label>
                 <div className="flex flex-wrap gap-2">
                   {suggestedTerms.map(term => (
                     <Badge 
                       key={term} 
                       variant="outline" 
-                      className="cursor-pointer hover:bg-primary-50"
+                      className="cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-950"
                       onClick={() => handleManuallyAddTerm(term)}
                     >
                       + {term}
@@ -266,7 +266,7 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
           
           <TabsContent value="mood" className="pt-3">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Select a Mood</label>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Select a Mood</label>
               <div className="grid grid-cols-2 gap-2">
                 {moodCategories.map(mood => (
                   <Button 
@@ -284,14 +284,14 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
               </div>
               
               <div className="mt-4">
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Selected Terms</label>
-                <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 rounded-lg bg-neutral-50 min-h-[60px]">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Selected Terms</label>
+                <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 dark:border-gray-700 rounded-lg bg-neutral-50 dark:bg-gray-800 min-h-[60px]">
                   {searchTerms.map(tag => (
                     <Badge key={tag.term} variant="secondary" className={`${getTagColor(tag.category)} hover:opacity-90`}>
                       {tag.term}
                       <button
                         onClick={() => handleRemoveTerm(tag.term)}
-                        className="ml-1 hover:text-red-700"
+                        className="ml-1 hover:text-red-700 dark:hover:text-red-300"
                       >
                         <X size={14} />
                       </button>
@@ -304,31 +304,33 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
           
           <TabsContent value="date" className="pt-3">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Select Date Range</label>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Select Date Range</label>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">Start Date</label>
+                  <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Start Date</label>
                   <Input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    className="dark:bg-gray-800 dark:border-gray-700"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">End Date</label>
+                  <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">End Date</label>
                   <Input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate}
+                    className="dark:bg-gray-800 dark:border-gray-700"
                   />
                 </div>
               </div>
               
               <div className="mt-2">
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Quick Selections</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Quick Selections</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="justify-start" onClick={() => {
+                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
                     const now = new Date();
                     const lastMonth = new Date();
                     lastMonth.setMonth(now.getMonth() - 1);
@@ -336,7 +338,7 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
                     setEndDate(now.toISOString().split('T')[0]);
                     if (!albumName) setAlbumName("Last Month's Memories");
                   }}>Last Month</Button>
-                  <Button variant="outline" className="justify-start" onClick={() => {
+                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
                     const now = new Date();
                     const lastYear = new Date();
                     lastYear.setFullYear(now.getFullYear() - 1);
@@ -344,14 +346,14 @@ export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModa
                     setEndDate(now.toISOString().split('T')[0]);
                     if (!albumName) setAlbumName("Year in Review");
                   }}>Past Year</Button>
-                  <Button variant="outline" className="justify-start" onClick={() => {
+                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
                     const now = new Date();
                     const thisYearStart = new Date(now.getFullYear(), 0, 1);
                     setStartDate(thisYearStart.toISOString().split('T')[0]);
                     setEndDate(now.toISOString().split('T')[0]);
                     if (!albumName) setAlbumName(`${now.getFullYear()} Collection`);
                   }}>This Year</Button>
-                  <Button variant="outline" className="justify-start" onClick={() => {
+                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
                     const now = new Date();
                     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
                     setStartDate(thisMonthStart.toISOString().split('T')[0]);
