@@ -286,13 +286,23 @@ export function Sidebar() {
                       if (input.files && input.files.length > 0) {
                         // Get folder path from the first file
                         const file = input.files[0];
-                        // Remove filename from path to get directory
-                        const folderPath = file.webkitRelativePath.split('/')[0];
+                        
+                        // Extract just the folder name from the relative path
+                        const folderName = file.webkitRelativePath.split('/')[0];
+                        
+                        // For the path, we can't get the full OS path due to browser security restrictions
+                        // So we'll construct a path based on what we know
+                        let folderPath = "";
+                        
+                        // Browser security restrictions prevent us from getting the actual file path
+                        // So we'll use the folder name as our path
+                        folderPath = `/uploads/${folderName}`;
+                        
                         setNewFolderPath(folderPath);
                         
                         // If no folder name set, use the selected folder name
                         if (!newFolderName) {
-                          setNewFolderName(folderPath);
+                          setNewFolderName(folderName);
                         }
                       }
                     };
