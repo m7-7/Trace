@@ -1,13 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Folder } from "@shared/schema";
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
-import { AppContext, ModalType } from "@/App";
+import { useModal, ModalType } from "@/lib/modalContext";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -15,7 +15,7 @@ export function Sidebar() {
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [newFolderPath, setNewFolderPath] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
-  const { openModal } = useContext(AppContext);
+  const { openModal } = useModal();
   
   // Get folders from API
   const { data: folders = [] } = useQuery<Folder[]>({

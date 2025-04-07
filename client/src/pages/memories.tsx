@@ -5,11 +5,11 @@ import { Album } from "@shared/schema";
 import { AlbumCard } from "@/components/albumCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useContext } from "react";
-import { AppContext } from "@/App";
+
+import { useModal } from "@/lib/modalContext";
 
 export default function Memories() {
-  const { openModal } = useContext(AppContext);
+  const { openModal } = useModal();
   const { data: albums = [], isLoading } = useQuery<Album[]>({
     queryKey: ['/api/albums'],
   });

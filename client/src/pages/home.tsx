@@ -4,12 +4,11 @@ import { MemoryAlbums } from "@/components/memoryAlbums";
 import { PhotoGallery } from "@/components/photoGallery";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { useContext } from "react";
-import { AppContext } from "@/App";
+import { useModal } from "@/lib/modalContext";
 
 export default function Home() {
   const [location] = useLocation();
-  const { openModal } = useContext(AppContext);
+  const { openModal } = useModal();
   
   // Parse search params
   const searchParams = new URLSearchParams(location.split('?')[1] || '');

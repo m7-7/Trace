@@ -12,10 +12,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AppContext } from "@/App";
+import { useModal } from "@/lib/modalContext";
 
 interface RelatedAlbum {
   id: number;
@@ -31,7 +31,7 @@ export default function AlbumView() {
   const [, navigate] = useLocation();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [relatedAlbums, setRelatedAlbums] = useState<RelatedAlbum[]>([]);
-  const { openModal } = useContext(AppContext);
+  const { openModal } = useModal();
   
   const { data: album, isLoading } = useQuery<Album>({
     queryKey: [`/api/albums/${albumId}`],

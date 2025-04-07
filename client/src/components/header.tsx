@@ -1,12 +1,12 @@
-import { useContext, useState } from "react";
-import { AppContext } from "@/App";
+import { useState } from "react";
+import { useModal } from "@/lib/modalContext";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [, navigate] = useLocation();
-  const { openModal } = useContext(AppContext);
+  const { openModal } = useModal();
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
