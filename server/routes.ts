@@ -181,8 +181,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const simulatedPath = path.join(process.cwd(), 'uploads', folderName);
         await fs.promises.mkdir(simulatedPath, { recursive: true });
         
-        // Update the path to our simulated path for future operations
+        // Keep the original user-provided path for display purposes
+        // We'll use this for showing the folder path, but use simulatedPath for actual operations
+        const originalPath = folderData.path;
+        
+        // Store the original path but work with the simulated path
         folderData.path = simulatedPath;
+        folderData.displayPath = originalPath;
       } catch (error) {
         console.error('Error creating simulated folder:', error);
         // We'll continue anyway since we're just simulating folder access

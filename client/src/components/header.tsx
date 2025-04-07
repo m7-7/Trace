@@ -1,17 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useModal } from "@/lib/modalContext";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
+import { SEARCH_SUGGESTIONS } from "@/lib/constants";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState(SEARCH_SUGGESTIONS.slice(0, 5));
   const [, navigate] = useLocation();
   const { openModal } = useModal();
+  const searchRef = useRef<HTMLDivElement>(null);
+  
+  // Filter suggestions based on input
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      // Show random 5 suggestions when empty
+      const randomSuggestions = [...SEARCH_SUGGESTIONS]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 5);
+      setFilteredSuggestions(randomSuggestions);
+    } else {
+      // Filter based on search query
+      const filtered = SEARCH_SUGGESTIONS
+        .filter(suggestion => 
+          suggestion.term.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          suggestion.description.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .slice(0, 5);
+      setFilteredSuggestions(filtered);
+    }
+  }, [searchQuery]);
+  
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+      setShowSuggestions(false);
       
       // If this contains keywords like "winter", "coffee", etc., offer to create an album
       const commonTerms = ["winter", "summer", "beach", "coffee", "sunset", "morning", "night"];
@@ -19,6 +57,12 @@ export function Header() {
         openModal("createAlbum");
       }
     }
+  };
+  
+  const handleSuggestionClick = (term: string) => {
+    setSearchQuery(term);
+    navigate(`/?search=${encodeURIComponent(term)}`);
+    setShowSuggestions(false);
   };
   
   return (
@@ -40,7 +84,7 @@ export function Header() {
         </button>
         
         {/* Search Bar */}
-        <div className="flex-1 max-w-2xl mx-4">
+        <div className="flex-1 max-w-2xl mx-4" ref={searchRef}>
           <form onSubmit={handleSearch}>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-neutral-400 dark:text-neutral-500">
@@ -55,7 +99,46 @@ export function Header() {
                 placeholder="Search photos (e.g., 'winter morning coffee')"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
               />
+              
+              {/* Animated Search Suggestions */}
+              <AnimatePresence>
+                {showSuggestions && filteredSuggestions.length > 0 && (
+                  <motion.div 
+                    className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-neutral-200 dark:border-gray-700 overflow-hidden"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ul className="py-1">
+                      {filteredSuggestions.map((suggestion, index) => (
+                        <motion.li 
+                          key={suggestion.term}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.05 }}
+                          className="px-4 py-2 hover:bg-neutral-50 dark:hover:bg-gray-700 cursor-pointer"
+                          onClick={() => handleSuggestionClick(suggestion.term)}
+                        >
+                          <div className="flex items-center">
+                            <span className="text-xl mr-3">{suggestion.emoji}</span>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                                {suggestion.term}
+                              </span>
+                              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                                {suggestion.description}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </form>
         </div>

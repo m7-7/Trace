@@ -44,6 +44,7 @@ export const folders = pgTable("folders", {
   path: text("path").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"), // User provided description or "trace"
+  displayPath: text("display_path"), // Original user-provided path for UI display
   lastScanned: timestamp("last_scanned"),
   active: boolean("active").default(true)
 });

@@ -195,10 +195,17 @@ export function Sidebar() {
                   <li key={folder.id}>
                     <Link href={`/?folder=${folder.id}`}>
                       <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                         </svg>
-                        {folder.name}
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="truncate">{folder.name}</span>
+                          {(folder.displayPath) && (
+                            <span className="text-xs text-neutral-400 dark:text-neutral-500 truncate" title={folder.displayPath}>
+                              {folder.displayPath}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </Link>
                   </li>
@@ -291,12 +298,20 @@ export function Sidebar() {
                         const folderName = file.webkitRelativePath.split('/')[0];
                         
                         // For the path, we can't get the full OS path due to browser security restrictions
-                        // So we'll construct a path based on what we know
+                        // So let's create a mock system path based on the OS
                         let folderPath = "";
                         
-                        // Browser security restrictions prevent us from getting the actual file path
-                        // So we'll use the folder name as our path
-                        folderPath = `/uploads/${folderName}`;
+                        // Determine OS to create a realistic mock path
+                        const isWindows = navigator.platform.indexOf('Win') > -1;
+                        const isMac = navigator.platform.indexOf('Mac') > -1;
+                        
+                        if (isWindows) {
+                          folderPath = `C:\\Users\\${navigator.userAgent.split(' ').pop()}\\Pictures\\${folderName}`;
+                        } else if (isMac) {
+                          folderPath = `/Users/${navigator.userAgent.split(' ').pop()}/Pictures/${folderName}`;
+                        } else {
+                          folderPath = `/home/${navigator.userAgent.split(' ').pop()}/Pictures/${folderName}`;
+                        }
                         
                         setNewFolderPath(folderPath);
                         
