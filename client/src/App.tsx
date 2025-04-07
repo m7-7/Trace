@@ -12,8 +12,9 @@ import AlbumView from "@/pages/albumView";
 import NotFound from "@/pages/not-found";
 import { ScanningModal } from "./components/scanningModal";
 import { CreateAlbumModal } from "./components/createAlbumModal";
+import { ImportFromUrlModal } from "./components/importFromUrlModal";
 
-export type ModalTypes = "none" | "scanning" | "createAlbum";
+export type ModalTypes = "none" | "scanning" | "createAlbum" | "importFromUrl";
 
 function Router() {
   return (
@@ -35,24 +36,25 @@ function App() {
   
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="relative">
-        <Router />
-        
-        {/* Modals */}
-        {activeModal === "scanning" && (
-          <ScanningModal onClose={closeModal} />
-        )}
-        
-        {activeModal === "createAlbum" && (
-          <CreateAlbumModal onClose={closeModal} />
-        )}
-        
-        {/* Context provider for modal control */}
-        <AppContext.Provider value={{ openModal }}>
+      <AppContext.Provider value={{ openModal }}>
+        <div className="relative">
           <Router />
-        </AppContext.Provider>
-      </div>
-      <Toaster />
+          
+          {/* Modals */}
+          {activeModal === "scanning" && (
+            <ScanningModal onClose={closeModal} />
+          )}
+          
+          {activeModal === "createAlbum" && (
+            <CreateAlbumModal onClose={closeModal} />
+          )}
+          
+          {activeModal === "importFromUrl" && (
+            <ImportFromUrlModal onClose={closeModal} />
+          )}
+        </div>
+        <Toaster />
+      </AppContext.Provider>
     </QueryClientProvider>
   );
 }

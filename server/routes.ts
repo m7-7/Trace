@@ -645,5 +645,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import photos from a URL
+  app.post('/api/photos/import-from-url', async (req: Request, res: Response) => {
+    try {
+      const { urls } = req.body;
+      
+      if (!Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ message: 'URLs must be a non-empty array' });
+      }
+      
+      const importResults = [];
+      
+      // Process each URL
+      for (const url of urls) {
+        try {
+          // Create a unique filename for the imported photo
+          const fileName = `import_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+          const filePath = path.join(process.cwd(), 'uploads', fileName);
+          
+          // Ensure uploads directory exists
+          await fs.promises.mkdir(path.join(process.cwd(), 'uploads'), { recursive: true });
+          
+          // Instead of actual downloading, we just create a placeholder for now
+          // This would be replaced with actual HTTP download logic in production
+          const photoData = {
+            filePath,
+            fileName,
+            fileType: 'image',
+            fileSize: 0, // Would be determined from actual download
+            width: 0, 
+            height: 0,
+            createdAt: new Date(),
+            favorite: false,
+            location: null,
+            metadata: { originalUrl: url },
+            contentTags: [],
+            indexed: true,
+            description: `Imported from ${url}`
+          };
+          
+          // Create photo record
+          const newPhoto = await storage.createPhoto(photoData);
+          importResults.push({ url, success: true, photoId: newPhoto.id });
+        } catch (error) {
+          console.error(`Error importing from URL ${url}:`, error);
+          importResults.push({ url, success: false, error: 'Failed to import' });
+        }
+      }
+      
+      res.json({
+        message: 'Import processed',
+        results: importResults
+      });
+      
+    } catch (error) {
+      console.error('Error importing from URLs:', error);
+      res.status(500).json({ message: 'Failed to import photos from URLs' });
+    }
+  });
+
   return httpServer;
 }

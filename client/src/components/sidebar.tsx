@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Folder } from "@shared/schema";
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
+import { AppContext } from "../App";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -14,6 +15,7 @@ export function Sidebar() {
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [newFolderPath, setNewFolderPath] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
+  const { openModal } = useContext(AppContext);
   
   // Get folders from API
   const { data: folders = [] } = useQuery<Folder[]>({
@@ -191,22 +193,14 @@ export function Sidebar() {
               <ul>
                 {folders.map(folder => (
                   <li key={folder.id}>
-                    <div 
-                      onClick={() => {
-                        // Start scan for this folder
-                        apiRequest("POST", `/api/folders/${folder.id}/scan`);
-                        toast({
-                          title: "Scanning Started",
-                          description: `Scanning folder: ${folder.name}`
-                        });
-                      }}
-                      className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                      </svg>
-                      {folder.name}
-                    </div>
+                    <Link href={`/?folder=${folder.id}`}>
+                      <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        {folder.name}
+                      </div>
+                    </Link>
                   </li>
                 ))}
                 <li>
@@ -219,6 +213,19 @@ export function Sidebar() {
                       <line x1="5" y1="12" x2="19" y2="12"></line>
                     </svg>
                     Add Folder
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => openModal("importFromUrl")}
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-primary-500 hover:bg-neutral-50 w-full text-left"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Import from URL
                   </button>
                 </li>
               </ul>
