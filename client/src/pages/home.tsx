@@ -24,7 +24,7 @@ export default function Home() {
         <Header />
         
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 dark:bg-gray-800 dark:text-white">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Your Memories</h1>
             <Button onClick={() => openModal("createAlbum")}>

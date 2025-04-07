@@ -54,7 +54,7 @@ function AppContent() {
   }, [activeModal]);
   
   return (
-    <div className="relative min-h-screen dark:bg-gray-900">
+    <div className="relative min-h-screen dark:bg-gray-900 dark:text-white">
       {/* Top Upload Progress Bar */}
       <UploadProgressBar 
         isUploading={isUploading} 

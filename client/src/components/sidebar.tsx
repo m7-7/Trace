@@ -74,13 +74,13 @@ export function Sidebar() {
   return (
     <>
       <div 
-        className={`sidebar fixed md:relative w-64 h-full bg-white dark:bg-gray-900 border-r border-neutral-100 dark:border-gray-800 shadow-sm z-20 md:transform-none ${
+        className={`sidebar fixed md:relative w-64 h-full bg-white dark:bg-gray-900 dark:text-white border-r border-neutral-100 dark:border-gray-700 shadow-sm z-20 md:transform-none ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         } transition-transform duration-300 ease-in-out`}
       >
         <div className="flex flex-col h-full">
           {/* Logo and App Name */}
-          <div className="flex items-center p-4 border-b border-neutral-100 dark:border-gray-800">
+          <div className="flex items-center p-4 border-b border-neutral-100 dark:border-gray-700">
             <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
               <span className="text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -245,7 +245,7 @@ export function Sidebar() {
           </nav>
           
           {/* Settings */}
-          <div className="p-3 border-t border-neutral-100 dark:border-gray-800">
+          <div className="p-3 border-t border-neutral-100 dark:border-gray-700">
             <div className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
@@ -259,7 +259,7 @@ export function Sidebar() {
       
       {/* Add Folder Dialog */}
       <Dialog open={addFolderOpen} onOpenChange={setAddFolderOpen}>
-        <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
+        <DialogContent className="sm:max-w-md dark:bg-gray-800 dark:border-gray-700">
           <DialogHeader>
             <DialogTitle className="dark:text-white">Add Folder</DialogTitle>
           </DialogHeader>
