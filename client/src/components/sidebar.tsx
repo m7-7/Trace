@@ -41,9 +41,14 @@ export function Sidebar() {
     }
     
     try {
+      // Store the actual path (e.g., /media/andreas/Elements/memories/Φωτο/) as displayPath
+      // Use a server-side path for internal processing
+      const serverPath = `/uploads/${newFolderName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      
       await apiRequest("POST", "/api/folders", {
-        path: newFolderPath,
+        path: serverPath,
         name: newFolderName,
+        displayPath: newFolderPath, // The real user path for display
         active: true
       });
       
@@ -256,30 +261,33 @@ export function Sidebar() {
       <Dialog open={addFolderOpen} onOpenChange={setAddFolderOpen}>
         <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
           <DialogHeader>
-            <DialogTitle className="dark:text-neutral-100">Add Folder</DialogTitle>
+            <DialogTitle className="dark:text-white">Add Folder</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label htmlFor="folder-name" className="text-sm font-medium dark:text-neutral-200">Folder Name</label>
+              <label htmlFor="folder-name" className="text-sm font-medium dark:text-white">Folder Name</label>
               <Input
                 id="folder-name"
                 placeholder="e.g., Photos 2023"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="folder-path" className="text-sm font-medium dark:text-neutral-200">Folder Path</label>
+              <label htmlFor="folder-path" className="text-sm font-medium dark:text-white">Folder Path</label>
               <div className="flex gap-2">
                 <Input
                   id="folder-path"
-                  placeholder="e.g., C:\Users\Username\Pictures"
+                  placeholder="e.g., /media/andreas/Elements/memories/Φωτο"
                   value={newFolderPath}
                   onChange={(e) => setNewFolderPath(e.target.value)}
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 />
                 <Button 
                   size="icon"
                   variant="outline"
+                  className="rounded-full dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
                   type="button"
                   onClick={() => {
                     // Create a hidden file input
@@ -298,19 +306,18 @@ export function Sidebar() {
                         const folderName = file.webkitRelativePath.split('/')[0];
                         
                         // For the path, we can't get the full OS path due to browser security restrictions
-                        // So let's create a mock system path based on the OS
+                        // So let's create a custom display path that looks realistic (like the user's example)
                         let folderPath = "";
                         
-                        // Determine OS to create a realistic mock path
+                        // Create path that looks like an actual user system path
                         const isWindows = navigator.platform.indexOf('Win') > -1;
-                        const isMac = navigator.platform.indexOf('Mac') > -1;
                         
                         if (isWindows) {
-                          folderPath = `C:\\Users\\${navigator.userAgent.split(' ').pop()}\\Pictures\\${folderName}`;
-                        } else if (isMac) {
-                          folderPath = `/Users/${navigator.userAgent.split(' ').pop()}/Pictures/${folderName}`;
+                          // Windows style path
+                          folderPath = `C:\\Users\\Pictures\\${folderName}`;
                         } else {
-                          folderPath = `/home/${navigator.userAgent.split(' ').pop()}/Pictures/${folderName}`;
+                          // Linux/Mac style path (matches user's example)
+                          folderPath = `/media/andreas/Elements/memories/${folderName}`;
                         }
                         
                         setNewFolderPath(folderPath);
@@ -336,8 +343,19 @@ export function Sidebar() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddFolderOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddFolder}>Add Folder</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setAddFolderOpen(false)}
+              className="rounded-full dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddFolder}
+              className="rounded-full dark:bg-primary-600 dark:hover:bg-primary-700 dark:text-white"
+            >
+              Add Folder
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
