@@ -82,41 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get photo by ID
-  app.get('/api/photos/:id', async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      const photo = await storage.getPhotoById(id);
-      
-      if (!photo) {
-        return res.status(404).json({ message: 'Photo not found' });
-      }
-      
-      res.json(photo);
-    } catch (error) {
-      console.error('Error fetching photo:', error);
-      res.status(500).json({ message: 'Failed to fetch photo' });
-    }
-  });
-  
-  // Toggle favorite status
-  app.put('/api/photos/:id/favorite', async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      const photo = await storage.toggleFavorite(id);
-      
-      if (!photo) {
-        return res.status(404).json({ message: 'Photo not found' });
-      }
-      
-      res.json(photo);
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      res.status(500).json({ message: 'Failed to toggle favorite' });
-    }
-  });
-  
-  // Get favorite photos
+  // Get favorite photos (must come before /:id to avoid being treated as an ID)
   app.get('/api/photos/favorites', async (req: Request, res: Response) => {
     try {
       const allPhotos = await storage.getPhotos(1000, 0); // Retrieve with a large limit
@@ -127,8 +93,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch favorites' });
     }
   });
-  
-  // Search photos
+
+  // Search photos (must come before /:id to avoid being treated as an ID)
   app.get('/api/photos/search', async (req: Request, res: Response) => {
     try {
       const searchQuery = req.query.q as string || '';
@@ -152,7 +118,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to search photos' });
     }
   });
-  
+
+  // Get photo by ID
+  app.get('/api/photos/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid photo ID' });
+      }
+      const photo = await storage.getPhotoById(id);
+
+      if (!photo) {
+        return res.status(404).json({ message: 'Photo not found' });
+      }
+
+      res.json(photo);
+    } catch (error) {
+      console.error('Error fetching photo:', error);
+      res.status(500).json({ message: 'Failed to fetch photo' });
+    }
+  });
+
+  // Toggle favorite status
+  app.put('/api/photos/:id/favorite', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid photo ID' });
+      }
+      const photo = await storage.toggleFavorite(id);
+
+      if (!photo) {
+        return res.status(404).json({ message: 'Photo not found' });
+      }
+
+      res.json(photo);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      res.status(500).json({ message: 'Failed to toggle favorite' });
+    }
+  });
+
   // Get all folders
   app.get('/api/folders', async (req: Request, res: Response) => {
     try {
