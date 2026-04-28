@@ -8,6 +8,7 @@ import React, { useState, useEffect } from "react";
 import Home from "@/pages/home";
 import Memories from "@/pages/memories";
 import Favorites from "@/pages/favorites";
+import TravelYourWorld from "@/pages/travelYourWorld";
 import AlbumView from "@/pages/albumView";
 import NotFound from "@/pages/not-found";
 import { ScanningModal } from "./components/scanningModal";
@@ -68,6 +69,7 @@ function AppContent() {
         <Route path="/" component={Home} />
         <Route path="/memories" component={Memories} />
         <Route path="/favorites" component={Favorites} />
+        <Route path="/travel" component={TravelYourWorld} />
         <Route path="/albums/:id" component={AlbumView} />
         <Route component={NotFound} />
       </Switch>
