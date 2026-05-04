@@ -52,6 +52,14 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
   }
 
+  async getFavoritePhotos(): Promise<Photo[]> {
+    return await db
+      .select()
+      .from(photos)
+      .where(eq(photos.favorite, true))
+      .orderBy(desc(photos.createdAt));
+  }
+
   async getPhotoById(id: number): Promise<Photo | undefined> {
     const [photo] = await db.select().from(photos).where(eq(photos.id, id));
     return photo || undefined;
@@ -144,12 +152,13 @@ export class DatabaseStorage implements IStorage {
       .delete(albumPhotos)
       .where(eq(albumPhotos.photoId, id));
 
-    // Then delete the photo
-    const result = await db
+    // Then delete the photo and check a row was actually removed
+    const deleted = await db
       .delete(photos)
-      .where(eq(photos.id, id));
-    
-    return !!result;
+      .where(eq(photos.id, id))
+      .returning({ id: photos.id });
+
+    return deleted.length > 0;
   }
 
   // Folder operations
@@ -198,11 +207,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteFolder(id: number): Promise<boolean> {
-    const result = await db
+    const deleted = await db
       .delete(folders)
-      .where(eq(folders.id, id));
-    
-    return !!result;
+      .where(eq(folders.id, id))
+      .returning({ id: folders.id });
+
+    return deleted.length > 0;
   }
 
   // Album operations
@@ -283,13 +293,14 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(albumPhotos)
       .where(eq(albumPhotos.albumId, id));
-    
-    // Then delete the album
-    const result = await db
+
+    // Then delete the album and check a row was actually removed
+    const deleted = await db
       .delete(albums)
-      .where(eq(albums.id, id));
-    
-    return !!result;
+      .where(eq(albums.id, id))
+      .returning({ id: albums.id });
+
+    return deleted.length > 0;
   }
 
   // Journal operations
@@ -335,11 +346,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteJournalEntry(id: number): Promise<boolean> {
-    const result = await db
+    const deleted = await db
       .delete(journalEntries)
-      .where(eq(journalEntries.id, id));
-    
-    return !!result;
+      .where(eq(journalEntries.id, id))
+      .returning({ id: journalEntries.id });
+
+    return deleted.length > 0;
   }
 
   async getJournalEntriesByPhotoId(photoId: number): Promise<JournalEntry[]> {

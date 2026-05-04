@@ -85,8 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get favorite photos (must come before /:id to avoid being treated as an ID)
   app.get('/api/photos/favorites', async (req: Request, res: Response) => {
     try {
-      const allPhotos = await storage.getPhotos(1000, 0); // Retrieve with a large limit
-      const favorites = allPhotos.filter(photo => photo.favorite);
+      const favorites = await storage.getFavoritePhotos();
       res.json(favorites);
     } catch (error) {
       console.error('Error fetching favorites:', error);
@@ -255,7 +254,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const files = await scanDirectory(folderToScan.path, true);
       let processedCount = 0;
       let successCount = 0;
-      
+
+      // Fetch all existing file paths once up-front to avoid an N+1 query inside the loop
+      const existingPhotos = await storage.getPhotos(100000, 0);
+      const existingPaths = new Set(existingPhotos.map(p => p.filePath));
+
       // Process each file
       for (const filePath of files) {
         try {
@@ -263,8 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!metadata) continue; // Skip unsupported file types
           
           // Check if photo already exists
-          const existingPhotos = await storage.getPhotos(1000, 0);
-          const photoExists = existingPhotos.some(p => p.filePath === filePath);
+          const photoExists = existingPaths.has(filePath);
           
           if (photoExists) {
             processedCount++;

@@ -16,6 +16,7 @@ export interface IStorage {
   
   // Photo operations
   getPhotos(limit?: number, offset?: number): Promise<Photo[]>;
+  getFavoritePhotos(): Promise<Photo[]>;
   getPhotoById(id: number): Promise<Photo | undefined>;
   getPhotosByDate(startDate: Date, endDate: Date): Promise<Photo[]>;
   getPhotosByTags(tags: string[]): Promise<Photo[]>;
@@ -108,7 +109,13 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(offset, offset + limit);
   }
-  
+
+  async getFavoritePhotos(): Promise<Photo[]> {
+    return Array.from(this.photos.values())
+      .filter(photo => photo.favorite)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
   async getPhotoById(id: number): Promise<Photo | undefined> {
     return this.photos.get(id);
   }
