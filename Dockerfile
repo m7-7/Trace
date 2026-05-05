@@ -25,6 +25,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    imagemagick \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./

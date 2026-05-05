@@ -20,13 +20,21 @@ export function PhotoCard({ photo, allPhotos }: PhotoCardProps) {
     e.stopPropagation();
     setIsTogglingFav(true);
     try {
-      const res = await apiRequest("PUT", `/api/photos/${photo.id}/favorite`, null);
+      const res = await apiRequest(
+        "PUT",
+        `/api/photos/${photo.id}/favorite`,
+        null,
+      );
       const updated = await res.json();
       setIsFavorite(updated.favorite);
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/photos/favorites"] });
     } catch {
-      toast({ title: "Error", description: "Could not update favorite", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Could not update favorite",
+        variant: "destructive",
+      });
     } finally {
       setIsTogglingFav(false);
     }
@@ -63,17 +71,23 @@ export function PhotoCard({ photo, allPhotos }: PhotoCardProps) {
           onClick={handleToggleFavorite}
           disabled={isTogglingFav}
           className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-sm transition-all duration-200
-            ${isFavorite
-              ? "bg-white/90 text-yellow-500 opacity-100"
-              : "bg-black/30 text-white opacity-0 group-hover:opacity-100"
+            ${
+              isFavorite
+                ? "bg-white/90 text-yellow-500 opacity-100"
+                : "bg-black/30 text-white opacity-0 group-hover:opacity-100"
             }`}
         >
-          <Star className="h-3.5 w-3.5" fill={isFavorite ? "currentColor" : "none"} />
+          <Star
+            className="h-3.5 w-3.5"
+            fill={isFavorite ? "currentColor" : "none"}
+          />
         </button>
 
         {/* Info bar — visible on hover */}
         <div className="absolute bottom-0 left-0 right-0 px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <p className="text-white text-xs font-medium truncate leading-tight">{displayName}</p>
+          <p className="text-white text-xs font-medium truncate leading-tight">
+            {displayName}
+          </p>
           <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
         </div>
       </div>
@@ -83,7 +97,7 @@ export function PhotoCard({ photo, allPhotos }: PhotoCardProps) {
           photo={photo}
           allPhotos={allPhotos}
           onClose={() => setModalOpen(false)}
-          isFavorite={isFavorite}
+          isFavorite={!!isFavorite}
           onToggleFavorite={handleToggleFavorite}
         />
       )}

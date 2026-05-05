@@ -14,7 +14,7 @@ services:
       PGDATABASE: trace
       NODE_ENV: production
     volumes:
-      - uploads:/app/uploads
+      - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
