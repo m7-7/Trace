@@ -85,8 +85,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchPhotos(terms: string[], startDate?: Date, endDate?: Date): Promise<Photo[]> {
-    let baseQuery = db.select().from(photos);
-    let whereConditions = [];
+    const whereConditions = [];
 
     // Add date range filter if provided
     if (startDate && endDate) {
@@ -107,12 +106,18 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(or(...termConditions));
     }
 
-    // Apply filters and order by
     if (whereConditions.length > 0) {
-      baseQuery = baseQuery.where(and(...whereConditions));
+      return await db
+        .select()
+        .from(photos)
+        .where(and(...whereConditions))
+        .orderBy(desc(photos.createdAt));
     }
 
-    return await baseQuery.orderBy(desc(photos.createdAt));
+    return await db
+      .select()
+      .from(photos)
+      .orderBy(desc(photos.createdAt));
   }
 
   async createPhoto(insertPhoto: InsertPhoto): Promise<Photo> {
