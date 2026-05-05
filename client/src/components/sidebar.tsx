@@ -81,7 +81,7 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Logo and App Name */}
           <div className="flex items-center p-4 border-b border-neutral-100 dark:border-gray-700">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
               <span className="text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
