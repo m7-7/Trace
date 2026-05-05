@@ -19,9 +19,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
     : (albumPhotos && albumPhotos.length > 0 ? albumPhotos[0] : null);
   
   const getPhotoUrl = (photoId: number) => {
-    // In a real implementation, this would fetch from the media endpoint
-    // Since we can't get a real file without a real file path, we'll use a placeholder
-    return `https://via.placeholder.com/500x160?text=${encodeURIComponent(album.name)}`;
+    return `/api/media/${photoId}`;
   };
   
   const formatDate = (date: Date | null) => {

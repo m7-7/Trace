@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import path from "path";
 import fs from "fs";
 import { promisify } from "util";
+import { execFile } from "child_process";
+const execFileAsync = promisify(execFile);
 import { analyzeImage, initializeModel } from "./imageRecognition";
 import { 
   insertPhotoSchema, 
@@ -788,18 +790,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Got an HTML page instead of an image — the file may be too large for direct download or requires sign-in');
           }
           
-          // Get the file buffer and save it
-          const buffer = await response.arrayBuffer();
-          await fs.promises.writeFile(filePath, Buffer.from(buffer));
-          
-          // Get file size
-          const stats = await fs.promises.stat(filePath);
+          // Get the file buffer and save it raw first
+          const rawBuffer = Buffer.from(await response.arrayBuffer());
 
-          // Reject empty/tiny files (likely error pages saved as bytes)
-          if (stats.size < 1000) {
-            await fs.promises.unlink(filePath).catch(() => {});
+          // Reject empty/tiny files (likely error pages)
+          if (rawBuffer.length < 1000) {
             throw new Error('Downloaded file is too small — likely not a valid image');
           }
+
+          // Save raw file first, then convert to JPEG with ImageMagick
+          // This handles HEIF/HEIC (iPhone), PNG, WebP, etc. — anything browsers can't display natively.
+          const jpgBaseName = baseName.replace(/[^a-z0-9_-]/gi, '_');
+          const jpgFileName = `import_${Date.now()}_${i}_${jpgBaseName}.jpg`;
+          const jpgFilePath = path.join(process.cwd(), 'uploads', jpgFileName);
+          const rawPath = filePath + '.raw';
+
+          await fs.promises.writeFile(rawPath, rawBuffer);
+
+          try {
+            await execFileAsync('magick', [rawPath, '-auto-orient', '-quality', '90', jpgFilePath]);
+            await fs.promises.unlink(rawPath).catch(() => {});
+          } catch (convErr) {
+            // Fallback: save raw as-is if ImageMagick can't convert
+            await fs.promises.rename(rawPath, filePath).catch(() => {});
+          }
+
+          // Use the converted JPEG if it was created, otherwise fall back to raw
+          const finalPath = fs.existsSync(jpgFilePath) ? jpgFilePath : filePath;
+          const finalName = fs.existsSync(jpgFilePath) ? jpgFileName : (originalName || fileName);
+
+          // Get file size
+          const stats = await fs.promises.stat(finalPath);
           
           // Extract domain from URL for tags
           let domain = "";
@@ -811,8 +832,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           const photoData = {
-            filePath,
-            fileName: originalName || fileName,
+            filePath: finalPath,
+            fileName: finalName,
             fileType: 'image',
             fileSize: stats.size,
             width: 0,
@@ -843,6 +864,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error importing from URLs:', error);
       res.status(500).json({ message: 'Failed to import photos from URLs' });
+    }
+  });
+
+  // One-time endpoint: convert any HEIF/incompatible photos already in the DB to JPEG
+  app.post('/api/photos/convert-existing', async (req: Request, res: Response) => {
+    try {
+      const allPhotos = await storage.getPhotos(10000, 0);
+      const results: { id: number; status: string }[] = [];
+
+      for (const photo of allPhotos) {
+        try {
+          // Read the file and let sharp detect the real format
+          const meta = await sharp(photo.filePath).metadata();
+          const format = meta.format;
+
+          // Only convert non-JPEG formats (heif, heic, png, webp, tiff, etc.)
+          if (format === 'jpeg') {
+            results.push({ id: photo.id, status: 'already_jpeg' });
+            continue;
+          }
+
+          // Build a new JPEG path next to the original
+          const dir = path.dirname(photo.filePath);
+          const base = path.basename(photo.filePath, path.extname(photo.filePath));
+          const newPath = path.join(dir, `${base}_converted.jpg`);
+
+          await sharp(photo.filePath).rotate().jpeg({ quality: 90 }).toFile(newPath);
+
+          // Update the DB record to point to the converted file
+          const newStats = await fs.promises.stat(newPath);
+          await storage.updatePhoto(photo.id, {
+            filePath: newPath,
+            fileName: path.basename(newPath),
+            fileSize: newStats.size,
+          });
+
+          results.push({ id: photo.id, status: `converted from ${format}` });
+        } catch (err: any) {
+          results.push({ id: photo.id, status: `error: ${err.message}` });
+        }
+      }
+
+      res.json({ converted: results.filter(r => r.status.startsWith('converted')).length, results });
+    } catch (error) {
+      console.error('Conversion error:', error);
+      res.status(500).json({ message: 'Conversion failed' });
     }
   });
 

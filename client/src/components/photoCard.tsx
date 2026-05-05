@@ -43,9 +43,7 @@ export function PhotoCard({ photo }: PhotoCardProps) {
   };
   
   const getPhotoUrl = () => {
-    // In a real implementation, this would fetch from the media endpoint
-    // Since we can't get a real file without a real file path, we'll use a placeholder
-    return `https://via.placeholder.com/400x300?text=${encodeURIComponent(photo.fileName)}`;
+    return `/api/media/${photo.id}`;
   };
   
   const formatDate = (date: Date) => {
