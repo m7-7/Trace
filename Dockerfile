@@ -14,14 +14,10 @@ RUN npm ci
 
 COPY . .
 
-# Build frontend + server, compile migration runner, generate SQL migration files.
-# DATABASE_URL is a placeholder here — drizzle-kit generate only reads the schema file,
-# it does NOT connect to a real database during build.
-RUN DATABASE_URL=postgres://placeholder:placeholder@localhost/placeholder \
+RUN export DATABASE_URL=postgres://placeholder:placeholder@localhost/placeholder && \
     npm run build && \
-    esbuild server/migrate.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && \
+    npx esbuild server/migrate.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && \
     npx drizzle-kit generate
-
 
 FROM node:20-slim AS runner
 
@@ -32,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
