@@ -16,6 +16,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useModal } from "@/lib/modalContext";
+import { AddPhotosToAlbumModal } from "@/components/addPhotosToAlbumModal";
+import { Photo } from "@shared/schema";
 
 interface RelatedAlbum {
   id: number;
@@ -30,6 +32,7 @@ export default function AlbumView() {
   const albumId = params ? parseInt(params.id) : 0;
   const [, navigate] = useLocation();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [addPhotosOpen, setAddPhotosOpen] = useState(false);
   const [relatedAlbums, setRelatedAlbums] = useState<RelatedAlbum[]>([]);
   const { openModal } = useModal();
   
@@ -40,6 +43,11 @@ export default function AlbumView() {
   
   const { data: allAlbums = [] } = useQuery<Album[]>({
     queryKey: ['/api/albums'],
+  });
+
+  const { data: albumPhotos = [] } = useQuery<Photo[]>({
+    queryKey: [`/api/albums/${albumId}/photos`],
+    enabled: !!albumId,
   });
   
   // Calculate related albums based on search terms and date overlap
@@ -165,14 +173,25 @@ export default function AlbumView() {
                 </div>
               </div>
               
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:border-red-800"
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                <Trash2 size={18} />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-sm"
+                  onClick={() => setAddPhotosOpen(true)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add Photos
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:border-red-800"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 size={18} />
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="mb-6">
@@ -231,6 +250,15 @@ export default function AlbumView() {
         </main>
       </div>
       
+      {addPhotosOpen && album && (
+        <AddPhotosToAlbumModal
+          albumId={albumId}
+          albumName={album.name}
+          existingPhotoIds={albumPhotos.map(p => p.id)}
+          onClose={() => setAddPhotosOpen(false)}
+        />
+      )}
+
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

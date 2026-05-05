@@ -2,378 +2,195 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Plus, Smile, Calendar, Search } from "lucide-react";
+import { Check, ChevronRight, Loader2, Images } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { COMMON_SEARCH_TERMS } from "@/lib/constants";
+import { Photo } from "@shared/schema";
+import { format } from "date-fns";
 
 interface CreateAlbumModalProps {
   onClose: () => void;
   initialTerms?: string[];
 }
 
-// Color categories for tags
-type TagCategory = 'nature' | 'mood' | 'event' | 'time' | 'people' | 'place' | 'other';
-
-interface TagInfo {
-  term: string;
-  category: TagCategory;
-}
-
-// Mood categories with predefined terms (with dark mode support)
-const moodCategories = [
-  { name: "Happy", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100", terms: ["happy", "joy", "celebration", "smile", "fun"] },
-  { name: "Calm", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100", terms: ["calm", "peaceful", "serene", "quiet", "relaxed"] },
-  { name: "Energetic", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100", terms: ["energetic", "active", "exciting", "adventure"] },
-  { name: "Nostalgic", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100", terms: ["nostalgic", "memories", "throwback", "vintage"] },
-  { name: "Romantic", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100", terms: ["romantic", "love", "couple", "date", "anniversary"] },
-  { name: "Contemplative", color: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100", terms: ["thoughtful", "reflective", "introspective"] }
-];
-
-export function CreateAlbumModal({ onClose, initialTerms = [] }: CreateAlbumModalProps) {
+export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
+  const [step, setStep] = useState<"name" | "photos">("name");
   const [albumName, setAlbumName] = useState("");
-  const [searchTerms, setSearchTerms] = useState<TagInfo[]>(initialTerms.map(term => ({ term, category: 'other' })));
-  const [newTerm, setNewTerm] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
+  const [search, setSearch] = useState("");
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState("manual");
-  const [selectedMood, setSelectedMood] = useState("");
-  
-  // Get tag color based on category (with dark mode support)
-  const getTagColor = (category: TagCategory): string => {
-    switch(category) {
-      case 'nature': return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
-      case 'mood': return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
-      case 'event': return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
-      case 'time': return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
-      case 'people': return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
-      case 'place': return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100";
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100";
-    }
+
+  const { data: allPhotos = [], isLoading: photosLoading } = useQuery<Photo[]>({
+    queryKey: ["/api/photos"],
+  });
+
+  const filtered = search.trim()
+    ? allPhotos.filter(p => {
+        const q = search.toLowerCase();
+        const name = p.fileName.replace(/^import_\d+_\d+_/, "").replace(/_conv\.jpg$/i, "").replace(/_/g, " ").toLowerCase();
+        const tags = (p.contentTags ?? []).join(" ").toLowerCase();
+        return name.includes(q) || tags.includes(q);
+      })
+    : allPhotos;
+
+  const toggle = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
-  
-  // Determine category based on term
-  const getCategoryForTerm = (term: string): TagCategory => {
-    const termLower = term.toLowerCase();
-    
-    if (termLower.match(/forest|mountain|beach|ocean|lake|river|nature|tree|flower|garden|park|sunset|sunrise/)) {
-      return 'nature';
-    }
-    
-    if (termLower.match(/happy|sad|angry|excited|joyful|content|peaceful|nostalgic|melancholy/)) {
-      return 'mood';
-    }
-    
-    if (termLower.match(/birthday|wedding|vacation|holiday|anniversary|graduation|party|celebration/)) {
-      return 'event';
-    }
-    
-    if (termLower.match(/morning|evening|night|dawn|dusk|winter|summer|spring|fall|january|february|march|april|may|june|july|august|september|october|november|december/)) {
-      return 'time';
-    }
-    
-    if (termLower.match(/family|friend|father|mother|sister|brother|child|baby|parent|coworker|pet/)) {
-      return 'people';
-    }
-    
-    if (termLower.match(/home|office|city|country|travel|school|restaurant|cafe|park|street|building/)) {
-      return 'place';
-    }
-    
-    return 'other';
-  };
-  
-  const handleAddTerm = (e: React.KeyboardEvent) => {
-    if ((e.key === 'Enter' || e.key === ' ') && newTerm.trim()) {
-      e.preventDefault();
-      if (!searchTerms.some(t => t.term === newTerm.trim())) {
-        const category = getCategoryForTerm(newTerm.trim());
-        setSearchTerms([...searchTerms, { term: newTerm.trim(), category }]);
-      }
-      setNewTerm("");
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(p => p.id)));
     }
   };
 
-  const handleManuallyAddTerm = (term: string) => {
-    if (!searchTerms.some(t => t.term === term)) {
-      const category = getCategoryForTerm(term);
-      setSearchTerms([...searchTerms, { term, category }]);
-    }
-  };
-  
-  const handleRemoveTerm = (term: string) => {
-    setSearchTerms(searchTerms.filter(t => t.term !== term));
-  };
-
-  const handleMoodSelection = (mood: string) => {
-    setSelectedMood(mood);
-    const category = moodCategories.find(m => m.name === mood);
-    
-    if (category) {
-      // Generate a mood-based album name if none is set
-      if (!albumName) {
-        setAlbumName(`${mood} Moments`);
-      }
-      
-      // Add mood terms
-      const newTerms = [...searchTerms];
-      category.terms.forEach(term => {
-        if (!newTerms.some(t => t.term === term)) {
-          newTerms.push({ term, category: 'mood' });
-        }
-      });
-      setSearchTerms(newTerms);
-    }
-  };
-  
-  const handleCreateAlbum = async () => {
+  const handleNext = () => {
     if (!albumName.trim()) {
-      toast({
-        title: "Album name required",
-        description: "Please provide a name for your album",
-        variant: "destructive"
-      });
+      toast({ title: "Name required", description: "Give your memory a name first", variant: "destructive" });
       return;
     }
-    
-    if (searchTerms.length === 0) {
-      toast({
-        title: "Search terms required",
-        description: "Please add at least one search term",
-        variant: "destructive"
-      });
+    setStep("photos");
+  };
+
+  const handleCreate = async () => {
+    if (selectedIds.size === 0) {
+      toast({ title: "No photos selected", description: "Pick at least one photo", variant: "destructive" });
       return;
     }
-    
     setIsCreating(true);
-    
     try {
-      const albumData = {
-        name: albumName,
-        searchTerms: searchTerms.map(t => t.term),
-        dateRangeStart: startDate ? new Date(startDate).toISOString() : null,
-        dateRangeEnd: endDate ? new Date(endDate).toISOString() : null,
+      const res = await apiRequest("POST", "/api/albums", {
+        name: albumName.trim(),
+        photoIds: Array.from(selectedIds),
         createdAt: new Date().toISOString(),
-      };
-      
-      const result = await apiRequest("POST", "/api/albums", albumData);
-      const newAlbum = await result.json();
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/albums'] });
-      
-      toast({
-        title: "Album Created",
-        description: `"${albumName}" has been created with ${newAlbum.photoCount || 0} photos`
       });
-      
-      // Navigate to the new album
-      navigate(`/albums/${newAlbum.id}`);
+      const album = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/albums"] });
+      toast({ title: "Memory created", description: `"${albumName}" has been created with ${selectedIds.size} photo${selectedIds.size === 1 ? "" : "s"}` });
+      navigate(`/albums/${album.id}`);
       onClose();
-    } catch (error) {
-      console.error("Error creating album:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create album. Please try again.",
-        variant: "destructive"
-      });
+    } catch {
+      toast({ title: "Error", description: "Failed to create memory. Please try again.", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }
   };
-  
-  // Suggested terms list for quick selection
-  const suggestedTerms = COMMON_SEARCH_TERMS.filter(term => 
-    !searchTerms.some(t => t.term === term)
-  ).slice(0, 12);
-  
+
+  const allSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md app-modal">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="app-modal-title">Create Memory Album</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Images className="h-5 w-5 text-blue-700" />
+            {step === "name" ? "New Memory" : `Pick Photos — "${albumName}"`}
+          </DialogTitle>
         </DialogHeader>
-        
-        <div className="mb-4">
-          <label htmlFor="album-name" className="app-modal-label mb-1">Album Name</label>
-          <Input
-            id="album-name"
-            className="w-full app-modal-input"
-            placeholder="e.g., Winter Morning Coffee"
-            value={albumName}
-            onChange={(e) => setAlbumName(e.target.value)}
-          />
-        </div>
-        
-        <Tabs defaultValue="manual" className="mb-4" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="manual" className="flex items-center gap-1">
-              <Search size={14} /> Manual
-            </TabsTrigger>
-            <TabsTrigger value="mood" className="flex items-center gap-1">
-              <Smile size={14} /> Mood
-            </TabsTrigger>
-            <TabsTrigger value="date" className="flex items-center gap-1">
-              <Calendar size={14} /> Date
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="manual" className="pt-3">
-            <div className="mb-4">
-              <label className="app-modal-label mb-1">Search Terms</label>
-              <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 dark:border-gray-700 rounded-lg mb-2 bg-neutral-50 dark:bg-gray-800 min-h-[60px]">
-                {searchTerms.map(tag => (
-                  <Badge key={tag.term} variant="secondary" className={`${getTagColor(tag.category)} hover:opacity-90`}>
-                    {tag.term}
-                    <button
-                      onClick={() => handleRemoveTerm(tag.term)}
-                      className="ml-1 hover:text-red-700 dark:hover:text-red-300"
-                    >
-                      <X size={14} />
-                    </button>
-                  </Badge>
-                ))}
-                <Input
-                  className="flex-grow min-w-[100px] bg-transparent border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-1 h-7"
-                  placeholder="Add more terms..."
-                  value={newTerm}
-                  onChange={(e) => setNewTerm(e.target.value)}
-                  onKeyDown={handleAddTerm}
-                />
-              </div>
-              
-              <div className="mt-3">
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Suggested Terms</label>
-                <div className="flex flex-wrap gap-2">
-                  {suggestedTerms.map(term => (
-                    <Badge 
-                      key={term} 
-                      variant="outline" 
-                      className="cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-950"
-                      onClick={() => handleManuallyAddTerm(term)}
-                    >
-                      + {term}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+
+        {step === "name" ? (
+          <div className="flex-1 space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium text-neutral-700 block mb-1">Memory name</label>
+              <Input
+                placeholder="e.g., Sofia Bulgaria Walk"
+                value={albumName}
+                onChange={e => setAlbumName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleNext()}
+                autoFocus
+                className="text-base"
+              />
             </div>
-          </TabsContent>
-          
-          <TabsContent value="mood" className="pt-3">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Select a Mood</label>
-              <div className="grid grid-cols-2 gap-2">
-                {moodCategories.map(mood => (
-                  <Button 
-                    key={mood.name}
-                    variant={selectedMood === mood.name ? "default" : "outline"}
-                    className={`justify-start ${selectedMood === mood.name ? "" : mood.color} h-auto py-3 px-4`}
-                    onClick={() => handleMoodSelection(mood.name)}
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">{mood.name}</span>
-                      <span className="text-xs opacity-70">{mood.terms.slice(0, 2).join(", ")}</span>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-              
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Selected Terms</label>
-                <div className="flex flex-wrap gap-2 p-2 border border-neutral-200 dark:border-gray-700 rounded-lg bg-neutral-50 dark:bg-gray-800 min-h-[60px]">
-                  {searchTerms.map(tag => (
-                    <Badge key={tag.term} variant="secondary" className={`${getTagColor(tag.category)} hover:opacity-90`}>
-                      {tag.term}
-                      <button
-                        onClick={() => handleRemoveTerm(tag.term)}
-                        className="ml-1 hover:text-red-700 dark:hover:text-red-300"
+            <p className="text-sm text-neutral-500">Next you'll pick which photos to include.</p>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0 gap-3">
+            {/* Search + select all */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search photos…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={toggleAll} className="shrink-0 text-xs">
+                {allSelected ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+
+            <p className="text-xs text-neutral-500">
+              {selectedIds.size} of {allPhotos.length} selected
+            </p>
+
+            {/* Photo grid */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {photosLoading ? (
+                <div className="flex items-center justify-center h-40">
+                  <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <p className="text-center text-neutral-400 py-12 text-sm">No photos found</p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  {filtered.map(photo => {
+                    const selected = selectedIds.has(photo.id);
+                    const dateLabel = format(new Date(photo.createdAt), "MMM d, yyyy");
+                    return (
+                      <div
+                        key={photo.id}
+                        onClick={() => toggle(photo.id)}
+                        className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                          selected ? "border-blue-700 ring-1 ring-blue-700" : "border-transparent hover:border-neutral-300"
+                        }`}
                       >
-                        <X size={14} />
-                      </button>
-                    </Badge>
-                  ))}
+                        <img
+                          src={`/api/media/${photo.id}`}
+                          alt={photo.fileName}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        {selected && (
+                          <div className="absolute top-1.5 right-1.5 bg-blue-700 text-white rounded-full p-0.5">
+                            <Check className="h-3 w-3" />
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 opacity-0 hover:opacity-100 transition-opacity">
+                          <p className="text-white text-[10px] truncate">{dateLabel}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </div>
-          </TabsContent>
-          
-          <TabsContent value="date" className="pt-3">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Select Date Range</label>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div>
-                  <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Start Date</label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="app-modal-input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">End Date</label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate}
-                    className="app-modal-input"
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-2">
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Quick Selections</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
-                    const now = new Date();
-                    const lastMonth = new Date();
-                    lastMonth.setMonth(now.getMonth() - 1);
-                    setStartDate(lastMonth.toISOString().split('T')[0]);
-                    setEndDate(now.toISOString().split('T')[0]);
-                    if (!albumName) setAlbumName("Last Month's Memories");
-                  }}>Last Month</Button>
-                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
-                    const now = new Date();
-                    const lastYear = new Date();
-                    lastYear.setFullYear(now.getFullYear() - 1);
-                    setStartDate(lastYear.toISOString().split('T')[0]);
-                    setEndDate(now.toISOString().split('T')[0]);
-                    if (!albumName) setAlbumName("Year in Review");
-                  }}>Past Year</Button>
-                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
-                    const now = new Date();
-                    const thisYearStart = new Date(now.getFullYear(), 0, 1);
-                    setStartDate(thisYearStart.toISOString().split('T')[0]);
-                    setEndDate(now.toISOString().split('T')[0]);
-                    if (!albumName) setAlbumName(`${now.getFullYear()} Collection`);
-                  }}>This Year</Button>
-                  <Button variant="outline" className="justify-start dark:border-gray-700 dark:hover:border-gray-600" onClick={() => {
-                    const now = new Date();
-                    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                    setStartDate(thisMonthStart.toISOString().split('T')[0]);
-                    setEndDate(now.toISOString().split('T')[0]);
-                    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                    if (!albumName) setAlbumName(`${monthNames[now.getMonth()]} ${now.getFullYear()}`);
-                  }}>This Month</Button>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isCreating} className="app-modal-button-secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleCreateAlbum} disabled={isCreating} className="app-modal-button-primary">
-            {isCreating ? "Creating..." : "Create Album"}
-          </Button>
+          </div>
+        )}
+
+        <DialogFooter className="pt-2">
+          {step === "name" ? (
+            <>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={handleNext} disabled={!albumName.trim()} className="gap-1">
+                Choose Photos <ChevronRight className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setStep("name")}>Back</Button>
+              <Button onClick={handleCreate} disabled={isCreating || selectedIds.size === 0}>
+                {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {isCreating ? "Creating…" : `Create Memory (${selectedIds.size} photo${selectedIds.size === 1 ? "" : "s"})`}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

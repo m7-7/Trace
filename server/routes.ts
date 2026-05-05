@@ -357,38 +357,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Add photos to an existing album
+  app.post('/api/albums/:id/photos', async (req: Request, res: Response) => {
+    try {
+      const albumId = parseInt(req.params.id);
+      const { photoIds } = req.body;
+      if (!Array.isArray(photoIds) || photoIds.length === 0) {
+        return res.status(400).json({ message: 'photoIds must be a non-empty array' });
+      }
+      for (const photoId of photoIds) {
+        await storage.addPhotoToAlbum(albumId, photoId);
+      }
+      // Set cover photo to first added photo if none set
+      const album = await storage.getAlbumById(albumId);
+      if (album && !album.coverPhotoId) {
+        await storage.updateAlbum(albumId, { coverPhotoId: photoIds[0] });
+      }
+      res.json({ added: photoIds.length });
+    } catch (error) {
+      console.error('Error adding photos to album:', error);
+      res.status(500).json({ message: 'Failed to add photos to album' });
+    }
+  });
+
   // Create a new album
   app.post('/api/albums', async (req: Request, res: Response) => {
     try {
+      const { photoIds, ...rest } = req.body;
+
       const albumData = insertAlbumSchema.parse({
-        ...req.body,
+        ...rest,
         createdAt: new Date()
       });
       
       // Create the album
       const album = await storage.createAlbum(albumData);
-      
-      // Find matching photos based on search terms and date range
-      const matchingPhotos = await storage.searchPhotos(
-        albumData.searchTerms || [],
-        albumData.dateRangeStart || undefined,
-        albumData.dateRangeEnd || undefined
-      );
-      
-      // Add photos to the album
-      for (const photo of matchingPhotos) {
-        await storage.addPhotoToAlbum(album.id, photo.id);
+
+      // If explicit photoIds provided, use them directly
+      let addedPhotoIds: number[] = [];
+      if (Array.isArray(photoIds) && photoIds.length > 0) {
+        for (const photoId of photoIds) {
+          await storage.addPhotoToAlbum(album.id, photoId);
+        }
+        addedPhotoIds = photoIds;
+      } else {
+        // Fall back to tag/date search
+        const matchingPhotos = await storage.searchPhotos(
+          albumData.searchTerms || [],
+          albumData.dateRangeStart || undefined,
+          albumData.dateRangeEnd || undefined
+        );
+        for (const photo of matchingPhotos) {
+          await storage.addPhotoToAlbum(album.id, photo.id);
+        }
+        addedPhotoIds = matchingPhotos.map(p => p.id);
       }
-      
-      // Set cover photo if we have matching photos
-      if (matchingPhotos.length > 0 && !album.coverPhotoId) {
-        // This is a placeholder - we should update the Album to have a coverPhotoId
-        console.log(`Album ${album.id} could use cover photo ${matchingPhotos[0].id}`);
+
+      // Set cover photo
+      if (addedPhotoIds.length > 0) {
+        await storage.updateAlbum(album.id, { coverPhotoId: addedPhotoIds[0] });
       }
       
       res.status(201).json({
         ...album,
-        photoCount: matchingPhotos.length
+        photoCount: addedPhotoIds.length
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
