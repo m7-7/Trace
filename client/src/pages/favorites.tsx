@@ -164,12 +164,12 @@ export default function Favorites() {
                   placeholder="Search by name, location, or tag…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 dark:bg-gray-900 dark:border-gray-700"
+                  className="pl-9 text-white placeholder:text-white/60 dark:bg-gray-900 dark:border-gray-700"
                 />
               </div>
 
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full md:w-[160px]">
+                <SelectTrigger className="w-full md:w-[160px] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -182,7 +182,7 @@ export default function Favorites() {
               </Select>
 
               <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="w-full md:w-[140px]">
+                <SelectTrigger className="w-full md:w-[140px] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -195,7 +195,7 @@ export default function Favorites() {
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full md:w-[160px]">
+                <SelectTrigger className="w-full md:w-[160px] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
