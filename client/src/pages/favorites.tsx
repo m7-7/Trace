@@ -276,7 +276,7 @@ export default function Favorites() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {visiblePhotos.map((photo) => (
-                  <PhotoCard key={photo.id} photo={photo} />
+                  <PhotoCard key={photo.id} photo={photo} allPhotos={visiblePhotos} />
                 ))}
               </div>
               {hasMore && (

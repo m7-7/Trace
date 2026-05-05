@@ -3,94 +3,90 @@ import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Star } from "lucide-react";
+import { PhotoModal } from "./photoModal";
 
 interface PhotoCardProps {
   photo: Photo;
+  allPhotos?: Photo[];
 }
 
-export function PhotoCard({ photo }: PhotoCardProps) {
-  const [isLoading, setIsLoading] = useState(false);
+export function PhotoCard({ photo, allPhotos }: PhotoCardProps) {
   const [isFavorite, setIsFavorite] = useState(photo.favorite);
-  
+  const [isTogglingFav, setIsTogglingFav] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+
   const handleToggleFavorite = async (e: React.MouseEvent) => {
-    e.preventDefault();
     e.stopPropagation();
-    
-    setIsLoading(true);
+    setIsTogglingFav(true);
     try {
-      const response = await apiRequest("PUT", `/api/photos/${photo.id}/favorite`, null);
-      const updatedPhoto = await response.json();
-      
-      setIsFavorite(updatedPhoto.favorite);
-      
-      // Update local cache
-      queryClient.invalidateQueries({ queryKey: ['/api/photos'] });
-      
-      toast({
-        title: updatedPhoto.favorite ? "Added to Favorites" : "Removed from Favorites",
-        description: `"${photo.fileName}" has been ${updatedPhoto.favorite ? "added to" : "removed from"} your favorites`,
-      });
-    } catch (error) {
-      console.error("Error toggling favorite:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update favorite status",
-        variant: "destructive"
-      });
+      const res = await apiRequest("PUT", `/api/photos/${photo.id}/favorite`, null);
+      const updated = await res.json();
+      setIsFavorite(updated.favorite);
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos/favorites"] });
+    } catch {
+      toast({ title: "Error", description: "Could not update favorite", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsTogglingFav(false);
     }
   };
-  
-  const getPhotoUrl = () => {
-    return `/api/media/${photo.id}`;
-  };
-  
-  const formatDate = (date: Date) => {
-    return format(new Date(date), "MMMM d, yyyy");
-  };
-  
+
+  const displayName = photo.fileName
+    .replace(/_conv\.jpg$/i, "")
+    .replace(/^import_\d+_\d+_/, "")
+    .replace(/\.(jpg|jpeg|png|heic|webp)$/i, "")
+    .replace(/_/g, " ");
+
+  const dateLabel = format(new Date(photo.createdAt), "MMM d, yyyy");
+
   return (
-    <div className="photo-card rounded-lg overflow-hidden shadow-sm">
-      <div className="relative aspect-[4/3] group">
-        <img 
-          src={getPhotoUrl()} 
-          alt={photo.fileName} 
-          className="w-full h-full object-cover" 
-          loading="lazy"
+    <>
+      <div
+        className="group relative rounded-xl overflow-hidden bg-neutral-100 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+        onClick={() => setModalOpen(true)}
+      >
+        <div className="aspect-[4/3]">
+          <img
+            src={`/api/media/${photo.id}`}
+            alt={displayName}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            loading="lazy"
+          />
+        </div>
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+
+        {/* Favorite button */}
+        <button
+          onClick={handleToggleFavorite}
+          disabled={isTogglingFav}
+          className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-sm transition-all duration-200
+            ${isFavorite
+              ? "bg-white/90 text-yellow-500 opacity-100"
+              : "bg-black/30 text-white opacity-0 group-hover:opacity-100"
+            }`}
+        >
+          <Star className="h-3.5 w-3.5" fill={isFavorite ? "currentColor" : "none"} />
+        </button>
+
+        {/* Info bar — visible on hover */}
+        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <p className="text-white text-xs font-medium truncate leading-tight">{displayName}</p>
+          <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
+        </div>
+      </div>
+
+      {modalOpen && (
+        <PhotoModal
+          photo={photo}
+          allPhotos={allPhotos}
+          onClose={() => setModalOpen(false)}
+          isFavorite={isFavorite}
+          onToggleFavorite={handleToggleFavorite}
         />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200"></div>
-        <div className={`absolute top-2 right-2 transition-opacity duration-200 ${isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-          <button 
-            className={`p-1 rounded-full bg-white/80 hover:bg-white ${isFavorite ? "text-yellow-500" : "text-neutral-700"}`}
-            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            onClick={handleToggleFavorite}
-            disabled={isLoading}
-          >
-            {isFavorite ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-              </svg>
-            )}
-          </button>
-        </div>
-      </div>
-      <div className="p-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-neutral-500">{formatDate(photo.createdAt)}</span>
-          <div className="flex space-x-1">
-            {photo.contentTags && photo.contentTags.slice(0, 2).map((tag, index) => (
-              <span key={index} className="inline-block px-1.5 py-0.5 bg-neutral-100 rounded text-xs text-neutral-600">
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
