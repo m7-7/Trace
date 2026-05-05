@@ -670,31 +670,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch file list from a public Google Drive folder
+  app.post('/api/photos/fetch-from-drive', async (req: Request, res: Response) => {
+    try {
+      const { url } = req.body;
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: 'URL is required' });
+      }
+
+      // Extract folder ID from any Drive folder URL format
+      const folderMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+      if (!folderMatch) {
+        return res.status(400).json({ message: 'Invalid Google Drive folder URL. Make sure it contains /folders/ in the path.' });
+      }
+      const folderId = folderMatch[1];
+
+      // Fetch the public folder page as a browser would
+      const html = await fetch(`https://drive.google.com/drive/folders/${folderId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      }).then(r => r.text());
+
+      // Google Drive embeds file data as JSON-like structures in the page HTML.
+      // File IDs are 28–44 character base64url strings. We look for them paired
+      // with image MIME types that appear nearby in the embedded data blobs.
+      const seen = new Set<string>();
+      const files: { id: string; name: string; thumbnailUrl: string; downloadUrl: string }[] = [];
+
+      // Pattern: ["FILE_ID","FILE_NAME",...,"image/jpeg"] or similar
+      const re = /\["([a-zA-Z0-9_-]{25,})",\s*"([^"]+?)",(?:[^]]*?)"(image\/(?:jpeg|png|gif|webp|bmp|heic|tiff))"/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(html)) !== null) {
+        const [, id, name] = m;
+        if (!seen.has(id)) {
+          seen.add(id);
+          files.push({
+            id,
+            name,
+            thumbnailUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w300`,
+            downloadUrl: `https://drive.google.com/uc?export=download&id=${id}&confirm=t`,
+          });
+        }
+      }
+
+      // Fallback: look for any standalone Drive file IDs in the HTML
+      if (files.length === 0) {
+        const idRe = /["\/]([a-zA-Z0-9_-]{33})["\/]/g;
+        while ((m = idRe.exec(html)) !== null) {
+          const id = m[1];
+          if (!seen.has(id)) {
+            seen.add(id);
+            files.push({
+              id,
+              name: `photo-${files.length + 1}.jpg`,
+              thumbnailUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w300`,
+              downloadUrl: `https://drive.google.com/uc?export=download&id=${id}&confirm=t`,
+            });
+          }
+        }
+      }
+
+      if (files.length === 0) {
+        return res.status(404).json({
+          message: 'No images found. Make sure the folder is publicly shared ("Anyone with the link can view").'
+        });
+      }
+
+      res.json({ files, folderId });
+    } catch (error) {
+      console.error('Error fetching Drive folder:', error);
+      res.status(500).json({ message: 'Failed to fetch Google Drive folder' });
+    }
+  });
+
   // Import photos from a URL
   app.post('/api/photos/import-from-url', async (req: Request, res: Response) => {
     try {
-      const { urls } = req.body;
+      const { urls, names } = req.body;
       
       if (!Array.isArray(urls) || urls.length === 0) {
         return res.status(400).json({ message: 'URLs must be a non-empty array' });
       }
       
       const importResults = [];
+
+      // Ensure uploads directory exists once
+      await fs.promises.mkdir(path.join(process.cwd(), 'uploads'), { recursive: true });
       
       // Process each URL
-      for (const url of urls) {
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
         try {
-          // Create a unique filename for the imported photo
-          const fileName = `import_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+          // Use supplied name if available, otherwise derive from URL
+          const originalName: string = (Array.isArray(names) && names[i]) ? names[i] : '';
+          const ext = originalName.match(/\.(jpe?g|png|gif|webp|bmp|heic|tiff)$/i)?.[0] || '.jpg';
+          const baseName = originalName.replace(/\.[^.]+$/, '') || `photo-${i + 1}`;
+          const fileName = `import_${Date.now()}_${i}_${baseName.replace(/[^a-z0-9_-]/gi, '_')}${ext}`;
           const filePath = path.join(process.cwd(), 'uploads', fileName);
           
-          // Ensure uploads directory exists
-          await fs.promises.mkdir(path.join(process.cwd(), 'uploads'), { recursive: true });
-          
-          // Download the image from the URL
-          const response = await fetch(url);
+          // Download the image — follow redirects (important for Google Drive)
+          const response = await fetch(url, {
+            redirect: 'follow',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            }
+          });
           if (!response.ok) {
-            throw new Error(`Failed to fetch image from URL: ${response.status} ${response.statusText}`);
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+          }
+
+          // Verify the response is actually an image, not an HTML error page
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('text/html')) {
+            throw new Error('Got an HTML page instead of an image — the file may be too large for direct download or requires sign-in');
           }
           
           // Get the file buffer and save it
@@ -703,6 +794,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Get file size
           const stats = await fs.promises.stat(filePath);
+
+          // Reject empty/tiny files (likely error pages saved as bytes)
+          if (stats.size < 1000) {
+            await fs.promises.unlink(filePath).catch(() => {});
+            throw new Error('Downloaded file is too small — likely not a valid image');
+          }
           
           // Extract domain from URL for tags
           let domain = "";
@@ -715,11 +812,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const photoData = {
             filePath,
-            fileName,
+            fileName: originalName || fileName,
             fileType: 'image',
             fileSize: stats.size,
-            width: 0, // Would be better determined with image processing library
-            height: 0, // Would be better determined with image processing library
+            width: 0,
+            height: 0,
             createdAt: new Date(),
             favorite: false,
             location: null,
