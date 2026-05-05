@@ -142,7 +142,7 @@ export default function Favorites() {
           </div>
 
           {/* Filter bar */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6 border border-neutral-100 dark:border-gray-700">
+          <div className="bg-blue-700 rounded-lg p-4 mb-6 border border-blue-800">
             <div className="flex flex-col md:flex-row gap-3 md:items-center">
               <div className="flex-1 relative">
                 <svg
