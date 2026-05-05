@@ -142,7 +142,7 @@ export default function Favorites() {
           </div>
 
           {/* Filter bar */}
-          <div className="bg-blue-700 rounded-lg p-4 mb-6 border border-blue-800">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6 border border-neutral-100 dark:border-gray-700">
             <div className="flex flex-col md:flex-row gap-3 md:items-center">
               <div className="flex-1 relative">
                 <svg
@@ -164,12 +164,12 @@ export default function Favorites() {
                   placeholder="Search by name, location, or tag…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 text-white placeholder:text-white/60 dark:bg-gray-900 dark:border-gray-700"
+                  className="pl-9 text-white placeholder:text-white/60 bg-blue-700 border-blue-800 hover:bg-blue-800"
                 />
               </div>
 
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full md:w-[160px] text-white">
+                <SelectTrigger className="w-full md:w-[160px] text-white bg-blue-700 border-blue-800 hover:bg-blue-800">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -182,7 +182,7 @@ export default function Favorites() {
               </Select>
 
               <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="w-full md:w-[140px] text-white">
+                <SelectTrigger className="w-full md:w-[140px] text-white bg-blue-700 border-blue-800 hover:bg-blue-800">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -195,7 +195,7 @@ export default function Favorites() {
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full md:w-[160px] text-white">
+                <SelectTrigger className="w-full md:w-[160px] text-white bg-blue-700 border-blue-800 hover:bg-blue-800">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
