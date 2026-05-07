@@ -155,7 +155,17 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
         });
       }
     } catch (err) {
-      toast({ title: "Import failed", description: "An error occurred during import", variant: "destructive" });
+      let description = "An error occurred during import.";
+      if (err instanceof TypeError) {
+        description = "Could not reach the server. Check your connection.";
+      } else if (err instanceof Error) {
+        try {
+          const body = err.message.replace(/^\d+: /, "");
+          const parsed = JSON.parse(body);
+          if (typeof parsed.message === "string") description = parsed.message;
+        } catch {}
+      }
+      toast({ title: "Import failed", description, variant: "destructive" });
     } finally {
       setIsImporting(false);
     }

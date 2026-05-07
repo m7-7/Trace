@@ -24,8 +24,20 @@ export default function Setup() {
     try {
       await apiRequest("POST", "/api/auth/setup", { password });
       await qc.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    } catch {
-      setError("Setup failed. Please try again.");
+    } catch (err) {
+      if (err instanceof TypeError) {
+        setError("Could not reach the server. Check your connection.");
+      } else if (err instanceof Error) {
+        try {
+          const body = err.message.replace(/^\d+: /, "");
+          const parsed = JSON.parse(body);
+          setError(typeof parsed.message === "string" ? parsed.message : "Setup failed. Please try again.");
+        } catch {
+          setError("Setup failed. Please try again.");
+        }
+      } else {
+        setError("Setup failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
