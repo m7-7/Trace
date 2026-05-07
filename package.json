@@ -99,6 +99,8 @@
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.30.4",
     "esbuild": "^0.25.0",
+    "node-addon-api": "^8.7.0",
+    "node-gyp": "^12.3.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "tsx": "^4.19.1",

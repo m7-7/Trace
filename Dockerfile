@@ -15,12 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-# Install all deps normally (prebuilt binaries for everything else),
-# then add node-addon-api (required by sharp's binding.gyp) and rebuild
-# only sharp from source against the system libvips installed above.
-# This gives sharp access to libheif + libde265 for HEIC → JPEG conversion.
+# npm ci installs node-addon-api and node-gyp (devDependencies) which
+# sharp's binding.gyp requires when rebuilding from source.
 RUN npm ci && \
-    npm install --no-save node-addon-api && \
     npm_config_build_from_source=true npm rebuild sharp
 
 COPY . .
