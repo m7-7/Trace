@@ -1189,8 +1189,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ` size=${rawBuffer.length}B` +
                 ` error="${convMessage}"`,
               );
+              // Surface HEIC/HEIF as a distinct actionable error rather than a
+              // generic conversion failure — the fix is a Docker image rebuild.
+              const isHeifUnsupported =
+                detectedType === "heif" &&
+                (convMessage.includes("plugin") ||
+                  convMessage.includes("heif") ||
+                  convMessage.includes("compression format"));
               throw new Error(
-                `Conversion failed (${detectedType ?? "unknown format"}): ${convMessage}`,
+                isHeifUnsupported
+                  ? "HEIC/HEIF format is not supported on this server — rebuild the Docker image with libheif support"
+                  : `Conversion failed (${detectedType ?? "unknown format"}): ${convMessage}`,
               );
             }
 

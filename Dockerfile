@@ -26,6 +26,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     imagemagick \
+    libheif1 \
+    libde265-0 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./

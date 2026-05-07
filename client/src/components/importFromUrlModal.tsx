@@ -141,17 +141,30 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
         names: selected.map(img => img.name),
       });
       const result = await res.json();
-      const successCount = result.results?.filter((r: any) => r.success).length ?? 0;
-      const failCount = selected.length - successCount;
+      const successCount: number = result.successCount ?? result.results?.filter((r: any) => r.success).length ?? 0;
+      const failCount: number = result.failCount ?? (selected.length - successCount);
+      const failedErrors: string[] = (result.results ?? [])
+        .filter((r: any) => !r.success)
+        .map((r: any) => r.error ?? "");
+      const heicFailCount = failedErrors.filter(e => e.includes("HEIC/HEIF")).length;
 
       if (successCount > 0) {
-        toast({
-          title: "Import complete",
-          description: `${successCount} photo${successCount === 1 ? "" : "s"} imported${failCount > 0 ? `, ${failCount} failed` : ""}`,
-        });
+        let description = `${successCount} photo${successCount === 1 ? "" : "s"} imported`;
+        if (heicFailCount > 0) {
+          description += `, ${heicFailCount} HEIC/HEIF file${heicFailCount === 1 ? "" : "s"} skipped (server needs libheif)`;
+        } else if (failCount > 0) {
+          description += `, ${failCount} failed`;
+        }
+        toast({ title: "Import complete", description });
         queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
         queryClient.invalidateQueries({ queryKey: ["/api/photos/favorites"] });
         onClose();
+      } else if (heicFailCount > 0) {
+        toast({
+          title: "HEIC/HEIF not supported",
+          description: `${heicFailCount} file${heicFailCount === 1 ? "" : "s"} could not be converted. The server Docker image needs to be rebuilt with libheif support.`,
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Import failed",
