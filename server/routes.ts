@@ -517,7 +517,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .status(400)
           .json({ message: "photoIds must be a non-empty array" });
       }
-      for (const photoId of photoIds) {
+      const uniquePhotoIds = Array.from(new Set(photoIds.map(Number)));
+      for (const photoId of uniquePhotoIds) {
         await storage.addPhotoToAlbum(albumId, photoId);
       }
       // Set cover photo to first added photo if none set
@@ -548,10 +549,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If explicit photoIds provided, use them directly
       let addedPhotoIds: number[] = [];
       if (Array.isArray(photoIds) && photoIds.length > 0) {
-        for (const photoId of photoIds) {
+        const uniqueIds = Array.from(new Set(photoIds.map(Number)));
+        for (const photoId of uniqueIds) {
           await storage.addPhotoToAlbum(album.id, photoId);
         }
-        addedPhotoIds = photoIds;
+        addedPhotoIds = uniqueIds;
       } else {
         // Fall back to tag/date search
         const matchingPhotos = await storage.searchPhotos(

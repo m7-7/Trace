@@ -319,8 +319,17 @@ export class DatabaseStorage implements IStorage {
     const [albumPhoto] = await db
       .insert(albumPhotos)
       .values({ albumId, photoId })
+      .onConflictDoNothing()
       .returning();
-    
+
+    if (!albumPhoto) {
+      const [existing] = await db
+        .select()
+        .from(albumPhotos)
+        .where(and(eq(albumPhotos.albumId, albumId), eq(albumPhotos.photoId, photoId)));
+      return existing;
+    }
+
     return albumPhoto;
   }
 

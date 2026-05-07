@@ -380,6 +380,11 @@ export class MemStorage implements IStorage {
   }
 
   async addPhotoToAlbum(albumId: number, photoId: number): Promise<AlbumPhoto> {
+    const existing = Array.from(this.albumPhotos.values()).find(
+      ap => ap.albumId === albumId && ap.photoId === photoId,
+    );
+    if (existing) return existing;
+
     const id = this.albumPhotoCurrentId++;
     const albumPhoto: AlbumPhoto = { id, albumId, photoId };
     this.albumPhotos.set(id, albumPhoto);
