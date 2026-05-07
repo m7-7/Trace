@@ -1,9 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { requireAuth, hashPassword, verifyPassword, ADMIN_USERNAME } from "./auth";
 import path from "path";
 import fs from "fs";
-import { analyzeImage, initializeModel } from "./imageRecognition";
+import { promises as dnsPromises } from "dns";
+import { analyzeImage, initializeModel, modelStatus } from "./imageRecognition";
 import sharp from "sharp";
 import {
   insertPhotoSchema,
@@ -13,6 +15,66 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+
+// Returns true for IPv4/IPv6 addresses in private, loopback, or link-local ranges.
+function isPrivateIP(address: string): boolean {
+  const ipv4 = address.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4) {
+    const [, a, b] = ipv4.map(Number);
+    return (
+      a === 0 ||                                    // 0.0.0.0/8
+      a === 10 ||                                   // RFC 1918
+      a === 127 ||                                  // loopback
+      (a === 100 && b >= 64 && b <= 127) ||         // carrier-grade NAT
+      (a === 169 && b === 254) ||                   // link-local
+      (a === 172 && b >= 16 && b <= 31) ||          // RFC 1918
+      (a === 192 && b === 168)                      // RFC 1918
+    );
+  }
+  const addr = address.toLowerCase().replace(/^\[|\]$/g, "");
+  return (
+    addr === "::" ||
+    addr === "::1" ||                               // loopback
+    addr.startsWith("fc") ||                        // unique local fc00::/7
+    addr.startsWith("fd") ||                        // unique local fc00::/7
+    addr.startsWith("fe80") ||                      // link-local fe80::/10
+    addr.startsWith("::ffff:")                      // IPv4-mapped — underlying addr not rechecked;
+                                                    // block the prefix to be safe
+  );
+}
+
+// Validates that a URL is safe to fetch: https/http only, no private/local IPs.
+// NOTE: TOCTOU limitation — the fetch that follows may connect to a different IP
+// if DNS changes between this check and the actual request (DNS rebinding).
+// Fully preventing DNS rebinding requires a custom HTTP client that reuses the
+// validated socket. This check covers the common case of explicitly-private hosts.
+async function validateImportUrl(rawUrl: string): Promise<void> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("Invalid URL");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Only http and https URLs are allowed");
+  }
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, ""); // strip IPv6 brackets
+  // IP literal — check directly without a DNS lookup
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.includes(":")) {
+    if (isPrivateIP(hostname)) throw new Error("Private and local addresses are not allowed");
+    return;
+  }
+  // Resolve the hostname so we can check the actual IP(s) it maps to
+  let addresses: { address: string; family: number }[];
+  try {
+    addresses = await dnsPromises.lookup(hostname, { all: true });
+  } catch {
+    throw new Error("Could not resolve hostname");
+  }
+  for (const { address } of addresses) {
+    if (isPrivateIP(address)) throw new Error("URL resolves to a private or local address");
+  }
+}
 
 // Helper to handle file metadata extraction
 async function getFileMetadata(filePath: string) {
@@ -74,14 +136,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize the TensorFlow model
   initializeModel().catch(console.error);
 
+  // Auth endpoints — exempt from requireAuth
+  app.get("/api/auth/me", async (req, res) => {
+    const admin = await storage.getUserByUsername(ADMIN_USERNAME);
+    if (!admin) return res.json({ needsSetup: true });
+    if (req.session.authenticated) return res.json({ authenticated: true });
+    res.status(401).json({ message: "Unauthorized" });
+  });
+
+  app.post("/api/auth/setup", async (req, res) => {
+    const existing = await storage.getUserByUsername(ADMIN_USERNAME);
+    if (existing) return res.status(403).json({ message: "Already configured" });
+    const { password } = req.body;
+    if (typeof password !== "string" || password.length < 10) {
+      return res.status(400).json({ message: "Password must be at least 10 characters" });
+    }
+    const hash = await hashPassword(password);
+    await storage.createUser({ username: ADMIN_USERNAME, password: hash });
+    req.session.authenticated = true;
+    res.json({ authenticated: true });
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    const { password } = req.body;
+    if (typeof password !== "string" || !password) {
+      return res.status(400).json({ message: "Password required" });
+    }
+    const admin = await storage.getUserByUsername(ADMIN_USERNAME);
+    if (!admin) return res.status(400).json({ message: "No admin account exists" });
+    const valid = await verifyPassword(password, admin.password);
+    if (!valid) return res.status(401).json({ message: "Invalid password" });
+    req.session.authenticated = true;
+    res.json({ authenticated: true });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  app.get("/api/status", (_req, res) => {
+    res.json({ model: modelStatus });
+  });
+
+  // All remaining /api routes require authentication
+  app.use("/api", requireAuth);
+
   // API routes
   // All routes are prefixed with /api
 
   // Get all photos with pagination
   app.get("/api/photos", async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+      const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
 
       const photos = await storage.getPhotos(limit, offset);
       res.json(photos);
@@ -183,6 +293,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const folderData = insertFolderSchema.parse(req.body);
 
+      // Null bytes can truncate paths on some systems
+      if (folderData.path.includes("\0")) {
+        return res.status(400).json({ message: "Invalid folder path" });
+      }
+
+      // path.basename strips all directory components (handles traversal like ../../),
+      // then we assert the resolved result is strictly inside uploads/ as a belt-and-suspenders guard.
+      const uploadsRoot = path.resolve(process.cwd(), "uploads");
+      const proposedPath = path.resolve(uploadsRoot, path.basename(folderData.path));
+      if (!proposedPath.startsWith(uploadsRoot + path.sep)) {
+        return res.status(400).json({ message: "Invalid folder path" });
+      }
+
       // In a browser environment, we can't really check access to arbitrary filesystem paths
       // So we'll create a simulated folder structure that works within our application's scope
 
@@ -269,9 +392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let processedCount = 0;
       let successCount = 0;
 
-      // Fetch all existing file paths once up-front to avoid an N+1 query inside the loop
-      const existingPhotos = await storage.getPhotos(100000, 0);
-      const existingPaths = new Set(existingPhotos.map((p) => p.filePath));
+      // Query only the discovered paths — avoids loading all photos into memory
+      const existingPaths = await storage.getExistingFilePaths(files);
 
       // Process each file
       for (const filePath of files) {
@@ -563,10 +685,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Journal entry not found" });
       }
 
-      const entryData = req.body;
+      const entryData = insertJournalEntrySchema.omit({ createdAt: true }).partial().parse(req.body);
       const updatedEntry = await storage.updateJournalEntry(id, entryData);
       res.json(updatedEntry);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        const readableError = fromZodError(error);
+        return res.status(400).json({ message: "Invalid journal entry data", errors: readableError.message });
+      }
       console.error("Error updating journal entry:", error);
       res.status(500).json({ message: "Failed to update journal entry" });
     }
@@ -861,6 +987,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .status(400)
             .json({ message: "URLs must be a non-empty array" });
         }
+        if (urls.length > 50) {
+          return res.status(400).json({ message: "Cannot import more than 50 URLs at once" });
+        }
 
         const importResults = [];
 
@@ -885,6 +1014,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // const fileName = `import_${Date.now()}_${i}_${baseName.replace(/[^a-z0-9_-]/gi, "_")}${ext}`;
             // const filePath = path.join(process.cwd(), "uploads", fileName);
 
+            // Validate URL before fetching: scheme, private IPs, DNS resolution
+            await validateImportUrl(url);
+
             // Download the image — follow redirects (important for Google Drive)
             const response = await fetch(url, {
               redirect: "follow",
@@ -897,16 +1029,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error(`HTTP ${response.status} ${response.statusText}`);
             }
 
-            // Verify the response is actually an image, not an HTML error page
+            // Require a positive image content-type
             const contentType = response.headers.get("content-type") || "";
-            if (contentType.includes("text/html")) {
-              throw new Error(
-                "Got an HTML page instead of an image — the file may be too large for direct download or requires sign-in",
-              );
+            if (!contentType.startsWith("image/")) {
+              throw new Error(`Expected an image but got content-type: ${contentType || "(none)"}`);
+            }
+
+            // Reject files over 50 MB — check header first, then buffer after download
+            const MAX_IMPORT_BYTES = 50 * 1024 * 1024;
+            const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
+            if (contentLength > MAX_IMPORT_BYTES) {
+              throw new Error("File exceeds the 50 MB import limit");
             }
 
             // Get the file buffer and save it raw first
             const rawBuffer = Buffer.from(await response.arrayBuffer());
+
+            if (rawBuffer.length > MAX_IMPORT_BYTES) {
+              throw new Error("File exceeds the 50 MB import limit");
+            }
 
             // Reject empty/tiny files (likely error pages)
             if (rawBuffer.length < 1000) {

@@ -64,8 +64,12 @@ async function loadModelClasses() {
 // Global model reference
 let model: tf.GraphModel | null = null;
 
+export type ModelStatus = "loading" | "ready" | "failed";
+export let modelStatus: ModelStatus = "loading";
+
 // Initialize model
 export async function initializeModel() {
+  modelStatus = "loading";
   try {
     model = await tf.loadGraphModel(
       'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_100_224/classification/3/default/1',
@@ -74,9 +78,11 @@ export async function initializeModel() {
 
     await loadModelClasses();
 
+    modelStatus = "ready";
     console.log('TensorFlow model loaded successfully');
     return true;
   } catch (error) {
+    modelStatus = "failed";
     console.error('Error loading TensorFlow model:', error);
     return false;
   }

@@ -166,6 +166,15 @@ export class DatabaseStorage implements IStorage {
     return deleted.length > 0;
   }
 
+  async getExistingFilePaths(paths: string[]): Promise<Set<string>> {
+    if (paths.length === 0) return new Set();
+    const rows = await db
+      .select({ filePath: photos.filePath })
+      .from(photos)
+      .where(inArray(photos.filePath, paths));
+    return new Set(rows.map((r) => r.filePath));
+  }
+
   // Folder operations
   async getFolders(): Promise<Folder[]> {
     return await db

@@ -1,10 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { buildSessionMiddleware } from "./auth";
 import path from "path";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(buildSessionMiddleware());
 
 function log(message: string) {
   console.log(message);

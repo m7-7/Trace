@@ -44,6 +44,7 @@ export interface IStorage {
   ): Promise<Photo | undefined>;
   toggleFavorite(id: number): Promise<Photo | undefined>;
   deletePhoto(id: number): Promise<boolean>;
+  getExistingFilePaths(paths: string[]): Promise<Set<string>>;
 
   // Folder operations
   getFolders(): Promise<Folder[]>;
@@ -251,6 +252,16 @@ export class MemStorage implements IStorage {
     }
 
     return this.photos.delete(id);
+  }
+
+  async getExistingFilePaths(paths: string[]): Promise<Set<string>> {
+    if (paths.length === 0) return new Set();
+    const pathSet = new Set(paths);
+    return new Set(
+      Array.from(this.photos.values())
+        .map((p) => p.filePath)
+        .filter((fp) => pathSet.has(fp)),
+    );
   }
 
   // Folder methods
