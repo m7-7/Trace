@@ -7,15 +7,21 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState(SEARCH_SUGGESTIONS.slice(0, 5));
   const [, navigate] = useLocation();
   const { openModal } = useModal();
   const searchRef = useRef<HTMLDivElement>(null);
-  
-  // Filter suggestions based on input
+
   useEffect(() => {
-    if (searchQuery.trim() === "") {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Filter suggestions based on debounced input
+  useEffect(() => {
+    if (debouncedQuery.trim() === "") {
       // Show random 5 suggestions when empty
       const randomSuggestions = [...SEARCH_SUGGESTIONS]
         .sort(() => 0.5 - Math.random())
@@ -24,14 +30,14 @@ export function Header() {
     } else {
       // Filter based on search query
       const filtered = SEARCH_SUGGESTIONS
-        .filter(suggestion => 
-          suggestion.term.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          suggestion.description.toLowerCase().includes(searchQuery.toLowerCase())
+        .filter(suggestion =>
+          suggestion.term.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+          suggestion.description.toLowerCase().includes(debouncedQuery.toLowerCase())
         )
         .slice(0, 5);
       setFilteredSuggestions(filtered);
     }
-  }, [searchQuery]);
+  }, [debouncedQuery]);
   
   // Close suggestions when clicking outside
   useEffect(() => {
