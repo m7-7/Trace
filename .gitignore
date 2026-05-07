@@ -4,6 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+*.dump
 .env
 .env.*
+!.env.example
 uploads/
+server/imagenet_classes.json
