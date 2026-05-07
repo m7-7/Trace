@@ -1,25 +1,26 @@
 import { db } from "./db";
-import { 
-  users, 
-  photos, 
-  folders, 
-  albums, 
-  albumPhotos, 
+import {
+  users,
+  photos,
+  folders,
+  albums,
+  albumPhotos,
   journalEntries,
-  type User, 
-  type InsertUser, 
-  type Photo, 
-  type InsertPhoto, 
-  type Folder, 
-  type InsertFolder, 
-  type Album, 
-  type InsertAlbum, 
-  type AlbumPhoto, 
-  type InsertAlbumPhoto, 
-  type JournalEntry, 
+  type User,
+  type InsertUser,
+  type Photo,
+  type InsertPhoto,
+  type Folder,
+  type InsertFolder,
+  type Album,
+  type AlbumWithPreview,
+  type InsertAlbum,
+  type AlbumPhoto,
+  type InsertAlbumPhoto,
+  type JournalEntry,
   type InsertJournalEntry
 } from "@shared/schema";
-import { eq, and, between, like, or, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, between, like, or, desc, sql, inArray, isNull, isNotNull, count } from "drizzle-orm";
 import { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
@@ -175,6 +176,22 @@ export class DatabaseStorage implements IStorage {
     return new Set(rows.map((r) => r.filePath));
   }
 
+  async getPlacedPhotos(): Promise<Photo[]> {
+    return await db
+      .select()
+      .from(photos)
+      .where(isNotNull(photos.coordinates))
+      .orderBy(desc(photos.createdAt));
+  }
+
+  async getUnplacedPhotoCount(): Promise<number> {
+    const [row] = await db
+      .select({ value: count() })
+      .from(photos)
+      .where(isNull(photos.coordinates));
+    return row?.value ?? 0;
+  }
+
   // Folder operations
   async getFolders(): Promise<Folder[]> {
     return await db
@@ -230,11 +247,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Album operations
-  async getAlbums(): Promise<Album[]> {
-    return await db
+  async getAlbums(): Promise<AlbumWithPreview[]> {
+    const allAlbums = await db
       .select()
       .from(albums)
       .orderBy(desc(albums.createdAt));
+
+    if (allAlbums.length === 0) return [];
+
+    const rows = await db
+      .select({ albumId: albumPhotos.albumId, photoId: albumPhotos.photoId })
+      .from(albumPhotos)
+      .where(inArray(albumPhotos.albumId, allAlbums.map(a => a.id)));
+
+    const photosByAlbum = new Map<number, number[]>();
+    for (const row of rows) {
+      if (!photosByAlbum.has(row.albumId)) photosByAlbum.set(row.albumId, []);
+      photosByAlbum.get(row.albumId)!.push(row.photoId);
+    }
+
+    return allAlbums.map(album => {
+      const photoIds = photosByAlbum.get(album.id) ?? [];
+      return { ...album, previewPhotoIds: photoIds.slice(0, 4), photoCount: photoIds.length };
+    });
   }
 
   async getAlbumById(id: number): Promise<Album | undefined> {

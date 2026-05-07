@@ -108,6 +108,11 @@ export type InsertFolder = z.infer<typeof insertFolderSchema>;
 export type Album = typeof albums.$inferSelect;
 export type InsertAlbum = z.infer<typeof insertAlbumSchema>;
 
+export type AlbumWithPreview = Album & {
+  previewPhotoIds: number[];
+  photoCount: number;
+};
+
 export type AlbumPhoto = typeof albumPhotos.$inferSelect;
 export type InsertAlbumPhoto = z.infer<typeof insertAlbumPhotoSchema>;
 

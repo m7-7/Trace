@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Album } from "@shared/schema";
+import { AlbumWithPreview } from "@shared/schema";
+import { Link } from "wouter";
 import { AlbumCard } from "./albumCard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function MemoryAlbums() {
-  const { data: albums = [], isLoading } = useQuery<Album[]>({
+  const { data: albums = [], isLoading } = useQuery<AlbumWithPreview[]>({
     queryKey: ['/api/albums'],
   });
   
@@ -62,7 +63,7 @@ export function MemoryAlbums() {
     <section className="mb-8">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-neutral-700">Recent Memories</h2>
-        <a href="/memories" className="text-sm text-primary-500 hover:text-primary-600 font-medium">View All</a>
+        <Link href="/memories" className="text-sm text-primary-500 hover:text-primary-600 font-medium">View All</Link>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

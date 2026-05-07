@@ -11,6 +11,7 @@ import {
   albums,
   type Album,
   type InsertAlbum,
+  type AlbumWithPreview,
   albumPhotos,
   type AlbumPhoto,
   type InsertAlbumPhoto,
@@ -45,6 +46,8 @@ export interface IStorage {
   toggleFavorite(id: number): Promise<Photo | undefined>;
   deletePhoto(id: number): Promise<boolean>;
   getExistingFilePaths(paths: string[]): Promise<Set<string>>;
+  getPlacedPhotos(): Promise<Photo[]>;
+  getUnplacedPhotoCount(): Promise<number>;
 
   // Folder operations
   getFolders(): Promise<Folder[]>;
@@ -58,7 +61,7 @@ export interface IStorage {
   deleteFolder(id: number): Promise<boolean>;
 
   // Album operations
-  getAlbums(): Promise<Album[]>;
+  getAlbums(): Promise<AlbumWithPreview[]>;
   getAlbumById(id: number): Promise<Album | undefined>;
   getAlbumPhotos(albumId: number): Promise<Photo[]>;
   createAlbum(album: InsertAlbum): Promise<Album>;
@@ -234,6 +237,14 @@ export class MemStorage implements IStorage {
     return updatedPhoto;
   }
 
+  async getPlacedPhotos(): Promise<Photo[]> {
+    return Array.from(this.photos.values()).filter(p => p.coordinates != null);
+  }
+
+  async getUnplacedPhotoCount(): Promise<number> {
+    return Array.from(this.photos.values()).filter(p => p.coordinates == null).length;
+  }
+
   async toggleFavorite(id: number): Promise<Photo | undefined> {
     const photo = this.photos.get(id);
     if (!photo) return undefined;
@@ -317,10 +328,16 @@ export class MemStorage implements IStorage {
   }
 
   // Album methods
-  async getAlbums(): Promise<Album[]> {
-    return Array.from(this.albums.values()).sort(
+  async getAlbums(): Promise<AlbumWithPreview[]> {
+    const allAlbums = Array.from(this.albums.values()).sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
     );
+    return allAlbums.map(album => {
+      const photoIds = Array.from(this.albumPhotos.values())
+        .filter(ap => ap.albumId === album.id)
+        .map(ap => ap.photoId);
+      return { ...album, previewPhotoIds: photoIds.slice(0, 4), photoCount: photoIds.length };
+    });
   }
 
   async getAlbumById(id: number): Promise<Album | undefined> {

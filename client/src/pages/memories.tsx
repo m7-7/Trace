@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { useQuery } from "@tanstack/react-query";
-import { Album } from "@shared/schema";
+import { AlbumWithPreview } from "@shared/schema";
 import { AlbumCard } from "@/components/albumCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { useModal } from "@/lib/modalContext";
 
 export default function Memories() {
   const { openModal } = useModal();
-  const { data: albums = [], isLoading } = useQuery<Album[]>({
+  const { data: albums = [], isLoading } = useQuery<AlbumWithPreview[]>({
     queryKey: ['/api/albums'],
   });
   

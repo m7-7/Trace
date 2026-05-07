@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { PhotoGallery } from "@/components/photoGallery";
 import { useQuery } from "@tanstack/react-query";
-import { Album } from "@shared/schema";
+import { Album, AlbumWithPreview } from "@shared/schema";
 import { useRoute } from "wouter";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +41,7 @@ export default function AlbumView() {
     enabled: !!albumId,
   });
   
-  const { data: allAlbums = [] } = useQuery<Album[]>({
+  const { data: allAlbums = [] } = useQuery<AlbumWithPreview[]>({
     queryKey: ['/api/albums'],
   });
 

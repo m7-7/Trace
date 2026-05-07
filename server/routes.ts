@@ -187,6 +187,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API routes
   // All routes are prefixed with /api
 
+  // Travel page data — must be registered before /api/photos/:id to avoid catch-all match
+  app.get("/api/travel", async (req: Request, res: Response) => {
+    try {
+      const [placed, unplacedCount] = await Promise.all([
+        storage.getPlacedPhotos(),
+        storage.getUnplacedPhotoCount(),
+      ]);
+      res.json({ placed, unplacedCount });
+    } catch (error) {
+      console.error("Error fetching travel data:", error);
+      res.status(500).json({ message: "Failed to fetch travel data" });
+    }
+  });
+
   // Get all photos with pagination
   app.get("/api/photos", async (req: Request, res: Response) => {
     try {
@@ -743,6 +757,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     },
   );
+
+  // Assign or update location coordinates on a photo (for future manual placement UI)
+  app.put("/api/photos/:id/location", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid photo ID" });
+
+      const photo = await storage.getPhotoById(id);
+      if (!photo) return res.status(404).json({ message: "Photo not found" });
+
+      const { coordinates, location } = req.body;
+
+      if (coordinates !== null && coordinates !== undefined) {
+        const { lat, lng } = coordinates ?? {};
+        if (
+          typeof lat !== "number" || typeof lng !== "number" ||
+          lat < -90 || lat > 90 || lng < -180 || lng > 180
+        ) {
+          return res.status(400).json({ message: "coordinates.lat must be -90..90 and coordinates.lng must be -180..180" });
+        }
+      }
+
+      const update: Record<string, unknown> = { coordinates: coordinates ?? null };
+      if (location !== undefined) {
+        if (typeof location !== "string" && location !== null) {
+          return res.status(400).json({ message: "location must be a string or null" });
+        }
+        update.location = location ?? null;
+      }
+
+      const updatedPhoto = await storage.updatePhoto(id, update as any);
+      res.json(updatedPhoto);
+    } catch (error) {
+      console.error("Error updating photo location:", error);
+      res.status(500).json({ message: "Failed to update photo location" });
+    }
+  });
 
   // Add description to folder (a "trace")
   app.put(
