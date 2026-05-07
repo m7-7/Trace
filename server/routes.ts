@@ -76,6 +76,29 @@ async function validateImportUrl(rawUrl: string): Promise<void> {
   }
 }
 
+// Detect image format from the first bytes of a buffer.
+// Returns a format string if recognised, null if the buffer is not a known image.
+function detectImageType(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpeg";
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "png";
+  // GIF: GIF8
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return "gif";
+  // WebP: RIFF....WEBP
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+      buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return "webp";
+  // HEIC/HEIF: ftyp box at offset 4
+  if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) return "heif";
+  // BMP: BM
+  if (buf[0] === 0x42 && buf[1] === 0x4d) return "bmp";
+  // TIFF: little-endian II or big-endian MM
+  if ((buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2a && buf[3] === 0x00) ||
+      (buf[0] === 0x4d && buf[1] === 0x4d && buf[2] === 0x00 && buf[3] === 0x2a)) return "tiff";
+  return null;
+}
+
 // Helper to handle file metadata extraction
 async function getFileMetadata(filePath: string) {
   const stats = await fs.promises.stat(filePath);
@@ -1082,10 +1105,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error(`HTTP ${response.status} ${response.statusText}`);
             }
 
-            // Require a positive image content-type
+            // Reject early only for content-types that are unambiguously not images
+            // (e.g. HTML error pages, JSON). octet-stream and missing types pass through
+            // and are validated by magic-byte inspection after download.
             const contentType = response.headers.get("content-type") || "";
-            if (!contentType.startsWith("image/")) {
-              throw new Error(`Expected an image but got content-type: ${contentType || "(none)"}`);
+            const contentTypeIsImage = contentType.startsWith("image/");
+            const contentTypeIsObviouslyWrong =
+              contentType.startsWith("text/") ||
+              contentType.startsWith("application/json") ||
+              contentType.startsWith("application/xml");
+            if (contentTypeIsObviouslyWrong) {
+              throw new Error(`Unexpected content-type: ${contentType}`);
             }
 
             // Reject files over 50 MB — check header first, then buffer after download
@@ -1107,6 +1137,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error(
                 "Downloaded file is too small — likely not a valid image",
               );
+            }
+
+            // For non-image content-types (octet-stream, missing, etc.), confirm
+            // the buffer is actually an image via magic bytes before proceeding.
+            if (!contentTypeIsImage) {
+              const detected = detectImageType(rawBuffer);
+              if (!detected) {
+                throw new Error(
+                  `File does not appear to be a valid image (content-type: ${contentType || "(none)"})`,
+                );
+              }
             }
 
             // Save raw file first, then convert to JPEG with ImageMagick
