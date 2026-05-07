@@ -1,5 +1,5 @@
 import { Photo } from "@shared/schema";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,17 @@ interface PhotoModalProps {
 
 export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavorite }: PhotoModalProps) {
   const photos = allPhotos ?? [photo];
-  const [currentIndex, setCurrentIndex] = useState(photos.findIndex(p => p.id === photo.id));
+  const [currentIndex, setCurrentIndex] = useState(() => Math.max(0, photos.findIndex(p => p.id === photo.id)));
   const current = photos[currentIndex] ?? photo;
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const prevIndexRef = useRef(currentIndex);
+
+  useEffect(() => {
+    if (prevIndexRef.current !== currentIndex) {
+      setImageLoaded(false);
+      prevIndexRef.current = currentIndex;
+    }
+  }, [currentIndex]);
 
   const goNext = useCallback(() => setCurrentIndex(i => Math.min(i + 1, photos.length - 1)), [photos.length]);
   const goPrev = useCallback(() => setCurrentIndex(i => Math.max(i - 1, 0)), []);
@@ -30,15 +39,18 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, goNext, goPrev]);
 
-  const displayName = current.fileName
+  const displayName = (current.fileName
     .replace(/_conv\.jpg$/i, "")
     .replace(/^import_\d+_\d+_/, "")
-    .replace(/\.(jpg|jpeg|png|heic|webp)$/i, "")
-    .replace(/_/g, " ");
+    .replace(/\.[^.]+$/i, "")
+    .replace(/_/g, " ")
+    .trim()) || current.fileName;
 
   const dateLabel = format(new Date(current.createdAt), "MMMM d, yyyy");
   const fileSizeLabel = current.fileSize
-    ? current.fileSize > 1024 * 1024
+    ? current.fileSize >= 1024 * 1024 * 1024
+      ? `${(current.fileSize / 1024 / 1024 / 1024).toFixed(2)} GB`
+      : current.fileSize >= 1024 * 1024
       ? `${(current.fileSize / 1024 / 1024).toFixed(1)} MB`
       : `${(current.fileSize / 1024).toFixed(0)} KB`
     : null;
@@ -57,11 +69,17 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
       >
         {/* Image pane */}
         <div className="relative flex-1 flex items-center justify-center bg-black min-w-0">
+          {!imageLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full border-2 border-neutral-700 border-t-neutral-300 animate-spin" />
+            </div>
+          )}
           <img
             key={current.id}
             src={`/api/media/${current.id}`}
             alt={displayName}
-            className="max-h-[90vh] max-w-full object-contain"
+            className={`max-h-[90vh] max-w-full object-contain transition-opacity duration-200 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            onLoad={() => setImageLoaded(true)}
           />
 
           {/* Close */}
