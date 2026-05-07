@@ -19,39 +19,27 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
   fetchPhotos: async (limit = 50, offset = 0) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`/api/photos?limit=${limit}&offset=${offset}`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch photos: ${response.statusText}`);
-      }
-      
+      const response = await apiRequest('GET', `/api/photos?limit=${limit}&offset=${offset}`);
       const photos: Photo[] = await response.json();
       set({ photos, isLoading: false });
     } catch (error) {
-      console.error('Error fetching photos:', error);
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to fetch photos', 
-        isLoading: false 
+      set({
+        error: error instanceof Error ? error.message : 'Failed to fetch photos',
+        isLoading: false
       });
     }
   },
-  
+
   searchPhotos: async (query: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`/api/photos/search?q=${encodeURIComponent(query)}`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to search photos: ${response.statusText}`);
-      }
-      
+      const response = await apiRequest('GET', `/api/photos/search?q=${encodeURIComponent(query)}`);
       const photos: Photo[] = await response.json();
       set({ photos, isLoading: false });
     } catch (error) {
-      console.error('Error searching photos:', error);
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to search photos', 
-        isLoading: false 
+      set({
+        error: error instanceof Error ? error.message : 'Failed to search photos',
+        isLoading: false
       });
     }
   },

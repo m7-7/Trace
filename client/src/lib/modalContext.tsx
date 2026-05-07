@@ -22,12 +22,10 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [activeModal, setActiveModal] = useState<ModalType>("none");
   
   const openModal = (modal: ModalType) => {
-    console.log("Opening modal:", modal);
     setActiveModal(modal);
   };
-  
+
   const closeModal = () => {
-    console.log("Closing modal");
     setActiveModal("none");
   };
   
