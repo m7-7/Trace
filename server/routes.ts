@@ -5,7 +5,7 @@ import { requireAuth, hashPassword, verifyPassword, ADMIN_USERNAME } from "./aut
 import path from "path";
 import fs from "fs";
 import { promises as dnsPromises } from "dns";
-import { analyzeImage, initializeModel } from "./imageRecognition";
+import { analyzeImage, initializeModel, modelStatus } from "./imageRecognition";
 import sharp from "sharp";
 import {
   insertPhotoSchema,
@@ -175,6 +175,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.clearCookie("connect.sid");
       res.json({ message: "Logged out" });
     });
+  });
+
+  app.get("/api/status", (_req, res) => {
+    res.json({ model: modelStatus });
   });
 
   // All remaining /api routes require authentication
@@ -388,9 +392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let processedCount = 0;
       let successCount = 0;
 
-      // Fetch all existing file paths once up-front to avoid an N+1 query inside the loop
-      const existingPhotos = await storage.getPhotos(100000, 0);
-      const existingPaths = new Set(existingPhotos.map((p) => p.filePath));
+      // Query only the discovered paths — avoids loading all photos into memory
+      const existingPaths = await storage.getExistingFilePaths(files);
 
       // Process each file
       for (const filePath of files) {
