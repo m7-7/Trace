@@ -1139,15 +1139,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
             }
 
+            // Always detect magic-byte type — used both for validation and failure diagnostics.
+            const detectedType = detectImageType(rawBuffer);
+
             // For non-image content-types (octet-stream, missing, etc.), confirm
             // the buffer is actually an image via magic bytes before proceeding.
-            if (!contentTypeIsImage) {
-              const detected = detectImageType(rawBuffer);
-              if (!detected) {
-                throw new Error(
-                  `File does not appear to be a valid image (content-type: ${contentType || "(none)"})`,
-                );
-              }
+            if (!contentTypeIsImage && !detectedType) {
+              throw new Error(
+                `File does not appear to be a valid image (content-type: ${contentType || "(none)"})`,
+              );
             }
 
             // Save raw file first, then convert to JPEG with ImageMagick
@@ -1180,8 +1180,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await fs.promises.unlink(rawPath).catch(() => {});
             } catch (convErr) {
               await fs.promises.unlink(rawPath).catch(() => {});
+              const convMessage = convErr instanceof Error ? convErr.message : String(convErr);
+              console.error(
+                `[import] conversion failed` +
+                ` name="${originalName}"` +
+                ` content-type="${contentType || "(none)"}"` +
+                ` detected="${detectedType ?? "unknown"}"` +
+                ` size=${rawBuffer.length}B` +
+                ` error="${convMessage}"`,
+              );
               throw new Error(
-                "Could not convert image to browser-compatible JPEG",
+                `Conversion failed (${detectedType ?? "unknown format"}): ${convMessage}`,
               );
             }
 
@@ -1220,18 +1229,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const newPhoto = await storage.createPhoto(photoData);
             importResults.push({ url, success: true, photoId: newPhoto.id });
           } catch (error) {
-            console.error(`Error importing from URL ${url}:`, error);
-            importResults.push({
-              url,
-              success: false,
-              error: "Failed to import",
-            });
+            const message = error instanceof Error ? error.message : "Failed to import";
+            console.error(`[import] failed url="${url}" error="${message}"`);
+            importResults.push({ url, success: false, error: message });
           }
         }
 
+        const successCount = importResults.filter(r => r.success).length;
+        const failCount = importResults.length - successCount;
         res.json({
           message: "Import processed",
           results: importResults,
+          successCount,
+          failCount,
         });
       } catch (error) {
         console.error("Error importing from URLs:", error);
