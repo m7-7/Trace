@@ -100,9 +100,14 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
       return;
     }
 
-    // Convert Dropbox share links: dl=0 → dl=1
     const resolved = lines.map(url => {
-      if (url.includes("dropbox.com")) return url.replace("?dl=0", "?dl=1").replace("&dl=0", "&dl=1");
+      try {
+        const parsed = new URL(url);
+        if (parsed.hostname.includes("dropbox.com")) {
+          parsed.searchParams.set("dl", "1");
+          return parsed.toString();
+        }
+      } catch {}
       return url;
     });
 
