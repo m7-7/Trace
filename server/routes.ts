@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { requireAuth, hashPassword, verifyPassword, ADMIN_USERNAME } from "./auth";
 import path from "path";
 import fs from "fs";
 import { analyzeImage, initializeModel } from "./imageRecognition";
@@ -73,6 +74,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize the TensorFlow model
   initializeModel().catch(console.error);
+
+  // Auth endpoints — exempt from requireAuth
+  app.get("/api/auth/me", async (req, res) => {
+    const admin = await storage.getUserByUsername(ADMIN_USERNAME);
+    if (!admin) return res.json({ needsSetup: true });
+    if (req.session.authenticated) return res.json({ authenticated: true });
+    res.status(401).json({ message: "Unauthorized" });
+  });
+
+  app.post("/api/auth/setup", async (req, res) => {
+    const existing = await storage.getUserByUsername(ADMIN_USERNAME);
+    if (existing) return res.status(403).json({ message: "Already configured" });
+    const { password } = req.body;
+    if (typeof password !== "string" || password.length < 10) {
+      return res.status(400).json({ message: "Password must be at least 10 characters" });
+    }
+    const hash = await hashPassword(password);
+    await storage.createUser({ username: ADMIN_USERNAME, password: hash });
+    req.session.authenticated = true;
+    res.json({ authenticated: true });
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    const { password } = req.body;
+    if (typeof password !== "string" || !password) {
+      return res.status(400).json({ message: "Password required" });
+    }
+    const admin = await storage.getUserByUsername(ADMIN_USERNAME);
+    if (!admin) return res.status(400).json({ message: "No admin account exists" });
+    const valid = await verifyPassword(password, admin.password);
+    if (!valid) return res.status(401).json({ message: "Invalid password" });
+    req.session.authenticated = true;
+    res.json({ authenticated: true });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  // All remaining /api routes require authentication
+  app.use("/api", requireAuth);
 
   // API routes
   // All routes are prefixed with /api

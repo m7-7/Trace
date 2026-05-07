@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { queryClient, getQueryFn } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import React, { useState, useEffect } from "react";
 
@@ -11,6 +11,8 @@ import Favorites from "@/pages/favorites";
 import TravelYourWorld from "@/pages/travelYourWorld";
 import AlbumView from "@/pages/albumView";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/login";
+import Setup from "@/pages/setup";
 import { ScanningModal } from "./components/scanningModal";
 import { CreateAlbumModal } from "./components/createAlbumModal";
 import { ImportFromUrlModal } from "./components/importFromUrlModal";
@@ -21,6 +23,14 @@ import { ModalProvider, useModal } from "./lib/modalContext";
 
 // Create app component
 function AppContent() {
+  const { data: auth, isLoading: authLoading } = useQuery<{
+    authenticated?: boolean;
+    needsSetup?: boolean;
+  } | null>({
+    queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+
   const { activeModal, closeModal } = useModal();
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -54,6 +64,10 @@ function AppContent() {
     }
   }, [activeModal]);
   
+  if (authLoading) return <div className="min-h-screen bg-gray-900" />;
+  if (auth?.needsSetup) return <Setup />;
+  if (!auth) return <Login />;
+
   return (
     <div className="relative min-h-screen dark:bg-gray-900 dark:text-white">
       {/* Top Upload Progress Bar */}
