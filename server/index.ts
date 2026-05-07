@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { buildSessionMiddleware } from "./auth";
 import path from "path";
+import { execSync } from "child_process";
+import sharp from "sharp";
 
 const app = express();
 app.use(express.json());
@@ -54,7 +56,44 @@ app.use((req, res, next) => {
   next();
 });
 
+function logSharpDiagnostics() {
+  try {
+    const versions = sharp.versions as Record<string, string>;
+    const heifFormat = (sharp.format as any).heif;
+    const heifInput = heifFormat?.input ?? null;
+
+    // Find the path of sharp's compiled native addon
+    let nodePath = "(unknown)";
+    try {
+      // sharp's .node file lives inside @img/sharp-linux-x64 or similar
+      nodePath = require.resolve("sharp").replace(/index\.js$/, "");
+    } catch {}
+
+    // ldd on the .node file reveals whether it links to system or bundled libvips
+    let lddOutput = "(ldd unavailable)";
+    try {
+      const nodeFiles = execSync(`find "${nodePath}" -name "*.node" 2>/dev/null | head -1`, { timeout: 3000 })
+        .toString().trim();
+      if (nodeFiles) {
+        lddOutput = execSync(`ldd "${nodeFiles}" 2>/dev/null | grep -E "vips|heif|de265"`, { timeout: 3000 })
+          .toString().trim() || "(no vips/heif/de265 in ldd output)";
+      }
+    } catch {}
+
+    log("=== sharp diagnostics ===");
+    log(`  sharp : ${versions.sharp}`);
+    log(`  vips  : ${versions.vips}`);
+    log(`  heif  : ${versions.heif ?? "NOT PRESENT — HEIC decode unavailable"}`);
+    log(`  heif input capable: ${heifInput ? "yes" : "no"}`);
+    log(`  ldd grep: ${lddOutput.replace(/\n/g, " | ")}`);
+    log("=========================");
+  } catch (err: any) {
+    log(`sharp diagnostics failed: ${err.message}`);
+  }
+}
+
 (async () => {
+  logSharpDiagnostics();
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

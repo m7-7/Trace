@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { requireAuth, hashPassword, verifyPassword, ADMIN_USERNAME } from "./auth";
 import path from "path";
 import fs from "fs";
+import { execSync } from "child_process";
 import { promises as dnsPromises } from "dns";
 import { analyzeImage, initializeModel, modelStatus } from "./imageRecognition";
 import sharp from "sharp";
@@ -158,6 +159,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize the TensorFlow model
   initializeModel().catch(console.error);
+
+  // Diagnostic endpoint — no auth required, safe to curl inside the container.
+  app.get("/api/diagnostics/sharp", (_req, res) => {
+    try {
+      const versions = sharp.versions as Record<string, string>;
+      const heifFormat = (sharp.format as any).heif;
+
+      let nodePath = "(unknown)";
+      let lddLines: string[] = [];
+      try {
+        nodePath = require.resolve("sharp").replace(/index\.js$/, "");
+        const nodeFile = execSync(`find "${nodePath}" -name "*.node" 2>/dev/null | head -1`, { timeout: 3000 })
+          .toString().trim();
+        if (nodeFile) {
+          lddLines = execSync(`ldd "${nodeFile}" 2>/dev/null`, { timeout: 3000 })
+            .toString()
+            .split("\n")
+            .map(l => l.trim())
+            .filter(l => /vips|heif|de265/.test(l));
+        }
+      } catch {}
+
+      res.json({
+        sharp: versions.sharp,
+        vips: versions.vips,
+        heif: versions.heif ?? null,
+        heifInputCapable: !!(heifFormat?.input),
+        lddVipsHeif: lddLines,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // Auth endpoints — exempt from requireAuth
   app.get("/api/auth/me", async (req, res) => {
