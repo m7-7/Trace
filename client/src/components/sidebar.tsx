@@ -31,43 +31,100 @@ export function Sidebar() {
   };
   
   const handleAddFolder = async () => {
-    if (!newFolderPath || !newFolderName) {
+    if (!newFolderPath.trim() || !newFolderName.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please provide both path and name for the folder",
+        description: "Please provide both a name and a container path for the folder",
         variant: "destructive"
       });
       return;
     }
-    
+
     try {
-      // Store the actual path (e.g., /media/andreas/Elements/memories/Φωτο/) as displayPath
-      // Use a server-side path for internal processing
-      const serverPath = `/uploads/${newFolderName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      
-      await apiRequest("POST", "/api/folders", {
-        path: serverPath,
-        name: newFolderName,
-        displayPath: newFolderPath, // The real user path for display
+      const folderRes = await apiRequest("POST", "/api/folders", {
+        path: newFolderPath.trim(),
+        name: newFolderName.trim(),
         active: true
       });
-      
+      const folder = await folderRes.json();
+      const folderPath: string = folder.path ?? newFolderPath.trim();
+
       queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
       setAddFolderOpen(false);
       setNewFolderPath("");
       setNewFolderName("");
-      
+
+      // Trigger background scan (server returns 202 immediately; TF inference per
+      // image means large folders take minutes — we poll lastScanned to detect completion).
+      await apiRequest("POST", `/api/folders/${folder.id}/scan`);
+
       toast({
-        title: "Folder Added",
-        description: "The folder has been added successfully"
+        title: `Scanning "${folder.name}"…`,
+        description: "Photos will appear in All Photos when the scan completes.",
       });
-    } catch (error) {
-      console.error("Error adding folder:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add folder. Please check if the path exists and is accessible.",
-        variant: "destructive"
-      });
+
+      // Poll GET /api/folders every 3 s (up to 90 s) until lastScanned becomes
+      // non-null for this folder, then show the real photo count.
+      const POLL_INTERVAL = 3000;
+      const MAX_POLLS = 30;
+      let polls = 0;
+
+      const check = async () => {
+        polls++;
+        try {
+          const res = await fetch("/api/folders");
+          const allFolders: any[] = await res.json();
+          const updated = allFolders.find((f: any) => f.id === folder.id);
+
+          if (updated?.lastScanned) {
+            // Scan complete — count photos whose filePath lives under this folder.
+            await queryClient.invalidateQueries({ queryKey: ['/api/photos'] });
+            const photosRes = await fetch("/api/photos");
+            const photos: any[] = await photosRes.json();
+            const count = Array.isArray(photos)
+              ? photos.filter((p: any) => typeof p.filePath === "string" && p.filePath.startsWith(folderPath)).length
+              : 0;
+
+            if (count > 0) {
+              toast({
+                title: "Scan complete",
+                description: `${count} photo${count === 1 ? "" : "s"} imported from "${folder.name}".`,
+              });
+            } else {
+              toast({
+                title: "Scan complete — 0 photos found",
+                description: `No supported images were found in "${folder.name}". The folder may be empty or contain unsupported file types.`,
+                variant: "destructive",
+              });
+            }
+            return; // done
+          }
+        } catch {
+          // network hiccup — keep polling
+        }
+
+        if (polls < MAX_POLLS) {
+          setTimeout(check, POLL_INTERVAL);
+        } else {
+          toast({
+            title: "Still scanning…",
+            description: `"${folder.name}" is taking a while. Check All Photos in a few minutes.`,
+          });
+        }
+      };
+
+      setTimeout(check, POLL_INTERVAL);
+    } catch (error: any) {
+      // Surface the server's error message (path not mounted, invalid root, etc.)
+      let description = "Failed to add folder.";
+      if (error instanceof Error) {
+        try {
+          const body = error.message.replace(/^\d+:\s*/, "");
+          const parsed = JSON.parse(body);
+          if (typeof parsed.message === "string") description = parsed.message;
+        } catch {}
+      }
+      toast({ title: "Error", description, variant: "destructive" });
     }
   };
   
@@ -277,71 +334,25 @@ export function Sidebar() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="folder-path" className="text-sm font-medium dark:text-white">Folder Path</label>
-              <div className="flex gap-2">
-                <Input
-                  id="folder-path"
-                  placeholder="e.g., /media/andreas/Elements/memories/Φωτο"
-                  value={newFolderPath}
-                  onChange={(e) => setNewFolderPath(e.target.value)}
-                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                />
-                <Button 
-                  size="icon"
-                  variant="outline"
-                  className="rounded-full dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
-                  type="button"
-                  onClick={() => {
-                    // Create a hidden file input
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    // Add directory selection attribute
-                    input.setAttribute('webkitdirectory', '');
-                    
-                    // When a folder is selected, update the path
-                    input.onchange = (e) => {
-                      if (input.files && input.files.length > 0) {
-                        // Get folder path from the first file
-                        const file = input.files[0];
-                        
-                        // Extract just the folder name from the relative path
-                        const folderName = file.webkitRelativePath.split('/')[0];
-                        
-                        // For the path, we can't get the full OS path due to browser security restrictions
-                        // So let's create a custom display path that looks realistic (like the user's example)
-                        let folderPath = "";
-                        
-                        // Create path that looks like an actual user system path
-                        const isWindows = navigator.platform.indexOf('Win') > -1;
-                        
-                        if (isWindows) {
-                          // Windows style path
-                          folderPath = `C:\\Users\\Pictures\\${folderName}`;
-                        } else {
-                          // Linux/Mac style path (matches user's example)
-                          folderPath = `/media/andreas/Elements/memories/${folderName}`;
-                        }
-                        
-                        setNewFolderPath(folderPath);
-                        
-                        // If no folder name set, use the selected folder name
-                        if (!newFolderName) {
-                          setNewFolderName(folderName);
-                        }
-                      }
-                    };
-                    
-                    // Trigger the file dialog
-                    input.click();
-                  }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                </Button>
-              </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">Enter the full path or click + to browse for a folder</p>
+              <label htmlFor="folder-path" className="text-sm font-medium dark:text-white">Container Path</label>
+              <Input
+                id="folder-path"
+                placeholder="/app/media/Pictures"
+                value={newFolderPath}
+                onChange={(e) => setNewFolderPath(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-white font-mono text-sm"
+              />
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Path must be under <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">/app/media/</code> or <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">/app/uploads/</code>.
+                Mount your host folder first in <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">docker-compose.yml</code>:
+              </p>
+              <pre className="text-xs bg-neutral-100 dark:bg-neutral-800 rounded p-2 text-neutral-600 dark:text-neutral-300 overflow-x-auto">
+{`volumes:
+  - /host/path/to/photos:/app/media/Pictures`}
+              </pre>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Then restart the container before adding the folder here.
+              </p>
             </div>
           </div>
           <DialogFooter>

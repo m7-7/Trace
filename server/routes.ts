@@ -366,45 +366,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const folderData = insertFolderSchema.parse(req.body);
 
-      // Null bytes can truncate paths on some systems
-      if (folderData.path.includes("\0")) {
+      // Reject null bytes and traversal components.
+      if (folderData.path.includes("\0") || folderData.path.includes("..")) {
         return res.status(400).json({ message: "Invalid folder path" });
       }
 
-      // path.basename strips all directory components (handles traversal like ../../),
-      // then we assert the resolved result is strictly inside uploads/ as a belt-and-suspenders guard.
-      const uploadsRoot = path.resolve(process.cwd(), "uploads");
-      const proposedPath = path.resolve(uploadsRoot, path.basename(folderData.path));
-      if (!proposedPath.startsWith(uploadsRoot + path.sep)) {
-        return res.status(400).json({ message: "Invalid folder path" });
-      }
-
-      // In a browser environment, we can't really check access to arbitrary filesystem paths
-      // So we'll create a simulated folder structure that works within our application's scope
-
-      // Create uploads directory if it doesn't exist
-      try {
-        await fs.promises.mkdir(path.join(process.cwd(), "uploads"), {
-          recursive: true,
+      // Resolve to an absolute path and assert it lives under one of the two
+      // allowed roots that are exposed to the container via volume mounts.
+      const resolvedPath = path.resolve(folderData.path);
+      const allowedRoots = ["/app/media", "/app/uploads"];
+      const underAllowedRoot = allowedRoots.some(
+        (root) => resolvedPath === root || resolvedPath.startsWith(root + path.sep)
+      );
+      if (!underAllowedRoot) {
+        return res.status(400).json({
+          message:
+            `Path must be under /app/media/ or /app/uploads/. ` +
+            `To scan a host folder, add a volume mount in docker-compose.yml:\n` +
+            `  - /host/path/to/photos:${resolvedPath}\nthen restart the container.`,
         });
-
-        // Create a subdirectory with the folder name to simulate the real folder
-        const folderName = path.basename(folderData.path);
-        const simulatedPath = path.join(process.cwd(), "uploads", folderName);
-        await fs.promises.mkdir(simulatedPath, { recursive: true });
-
-        // Keep the original user-provided path for display purposes
-        // We'll use this for showing the folder path, but use simulatedPath for actual operations
-        const originalPath = folderData.path;
-
-        // Store the original path but work with the simulated path
-        folderData.path = simulatedPath;
-        folderData.displayPath = originalPath;
-      } catch (error) {
-        console.error("Error creating simulated folder:", error);
-        // We'll continue anyway since we're just simulating folder access
       }
 
+      // Verify the path actually exists and is readable inside the container.
+      try {
+        await fs.promises.access(resolvedPath, fs.constants.R_OK);
+      } catch {
+        return res.status(400).json({
+          message:
+            `"${resolvedPath}" is not accessible inside the container. ` +
+            `Add a volume mount in docker-compose.yml:\n` +
+            `  - /host/path/to/photos:${resolvedPath}\nthen restart and try again.`,
+        });
+      }
+
+      folderData.path = resolvedPath;
       const folder = await storage.addFolder(folderData);
       res.status(201).json(folder);
     } catch (error) {

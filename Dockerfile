@@ -39,7 +39,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
 
 COPY entrypoint.sh ./entrypoint.sh
-RUN mkdir -p uploads && chmod +x entrypoint.sh
+RUN mkdir -p uploads media && chmod +x entrypoint.sh
 
 EXPOSE 5000
 

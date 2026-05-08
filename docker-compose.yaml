@@ -16,6 +16,11 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
     volumes:
       - ./uploads:/app/uploads
+      # To scan local photo folders, mount them under /app/media/ then add them
+      # in Trace via Add Folder using the container path (e.g. /app/media/Pictures).
+      # Restart the container after adding a new volume mount.
+      # Example:
+      # - /home/andreas/Pictures:/app/media/Pictures
     depends_on:
       db:
         condition: service_healthy
