@@ -1,7 +1,7 @@
 import { Photo } from "@shared/schema";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
-import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -28,8 +28,11 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   const [tagInput, setTagInput] = useState("");
   const tagInputRef = useRef<HTMLInputElement>(null);
 
+  const [localRotation, setLocalRotation] = useState<number>(current.rotation ?? 0);
+
   useEffect(() => {
     setLocalTags(filterTags(current.contentTags));
+    setLocalRotation(current.rotation ?? 0);
     setAddingTag(false);
     setTagInput("");
   }, [current.id]);
@@ -63,6 +66,18 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
     addTag(tagInput);
     setTagInput("");
     setAddingTag(false);
+  };
+
+  const handleRotate = async () => {
+    const next = ((localRotation + 90) % 360) as 0 | 90 | 180 | 270;
+    setLocalRotation(next);
+    try {
+      await apiRequest("PATCH", `/api/photos/${current.id}/rotation`, { rotation: next });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos/favorites"] });
+    } catch {
+      setLocalRotation(localRotation);
+    }
   };
 
   useEffect(() => {
@@ -124,6 +139,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
             src={`/api/media/${current.id}`}
             alt={displayName}
             className={`max-h-[90vh] max-w-full object-contain transition-opacity duration-200 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            style={{ transform: `rotate(${localRotation}deg)` }}
             onLoad={() => setImageLoaded(true)}
           />
 
@@ -166,11 +182,16 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
           {/* Name + favorite */}
           <div className="flex items-start justify-between gap-2 mb-4">
             <h2 className="text-white font-semibold text-sm leading-snug capitalize flex-1">{displayName}</h2>
-            <button onClick={onToggleFavorite} className="shrink-0 mt-0.5">
-              <Star
-                className={`h-5 w-5 transition-colors ${isFavorite ? "text-yellow-400 fill-yellow-400" : "text-neutral-500 hover:text-yellow-400"}`}
-              />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+              <button onClick={handleRotate} title="Rotate 90° clockwise">
+                <RotateCw className="h-4 w-4 text-neutral-500 hover:text-white transition-colors" />
+              </button>
+              <button onClick={onToggleFavorite}>
+                <Star
+                  className={`h-5 w-5 transition-colors ${isFavorite ? "text-yellow-400 fill-yellow-400" : "text-neutral-500 hover:text-yellow-400"}`}
+                />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3 text-sm">

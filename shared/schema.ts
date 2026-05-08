@@ -31,7 +31,8 @@ export const photos = pgTable("photos", {
   journalEntry: text("journal_entry"), // User's feelings or notes for the day
   metadata: jsonb("metadata"), // Stores EXIF and other metadata
   contentTags: text("content_tags").array(), // Tags from image recognition
-  indexed: boolean("indexed").default(false) // Whether the photo has been analyzed
+  indexed: boolean("indexed").default(false), // Whether the photo has been analyzed
+  rotation: integer("rotation").default(0) // Manual rotation override: 0 | 90 | 180 | 270
 });
 
 export const insertPhotoSchema = createInsertSchema(photos).omit({

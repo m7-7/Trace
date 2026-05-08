@@ -1,0 +1,1 @@
+ALTER TABLE "photos" ADD COLUMN IF NOT EXISTS "rotation" integer DEFAULT 0;

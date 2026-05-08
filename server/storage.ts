@@ -220,6 +220,7 @@ export class MemStorage implements IStorage {
       metadata: insertPhoto.metadata || null,
       journalEntry: insertPhoto.journalEntry || null,
       indexed: insertPhoto.indexed || false,
+      rotation: insertPhoto.rotation ?? 0,
     };
     this.photos.set(id, photo);
     return photo;

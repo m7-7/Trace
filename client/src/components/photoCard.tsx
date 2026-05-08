@@ -59,6 +59,7 @@ export function PhotoCard({ photo, allPhotos }: PhotoCardProps) {
             src={`/api/media/${photo.id}`}
             alt={displayName}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            style={photo.rotation ? { transform: `rotate(${photo.rotation}deg)` } : undefined}
             loading="lazy"
           />
         </div>

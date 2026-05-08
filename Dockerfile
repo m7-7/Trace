@@ -16,8 +16,7 @@ COPY . .
 
 RUN export DATABASE_URL=postgres://placeholder:placeholder@localhost/placeholder && \
     npm run build && \
-    npx esbuild server/migrate.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && \
-    npx drizzle-kit generate
+    npx esbuild server/migrate.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 
 FROM node:20-slim AS runner
 

@@ -885,6 +885,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update manual rotation on a photo (0 / 90 / 180 / 270)
+  app.patch("/api/photos/:id/rotation", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid photo ID" });
+
+      const photo = await storage.getPhotoById(id);
+      if (!photo) return res.status(404).json({ message: "Photo not found" });
+
+      const { rotation } = req.body;
+      if (![0, 90, 180, 270].includes(rotation)) {
+        return res.status(400).json({ message: "rotation must be 0, 90, 180, or 270" });
+      }
+
+      const updatedPhoto = await storage.updatePhoto(id, { rotation });
+      res.json(updatedPhoto);
+    } catch (error) {
+      console.error("Error updating photo rotation:", error);
+      res.status(500).json({ message: "Failed to update photo rotation" });
+    }
+  });
+
   // Add description to folder (a "trace")
   app.put(
     "/api/folders/:id/description",
