@@ -4,7 +4,9 @@ import { storage } from "./storage";
 import { requireAuth, hashPassword, verifyPassword, ADMIN_USERNAME } from "./auth";
 import path from "path";
 import fs from "fs";
-import { execSync } from "child_process";
+import { execSync, execFile as execFileCb } from "child_process";
+import { promisify } from "util";
+const execFile = promisify(execFileCb);
 import { promises as dnsPromises } from "dns";
 import { analyzeImage, initializeModel, modelStatus } from "./imageRecognition";
 import sharp from "sharp";
@@ -854,6 +856,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update tags on a photo (manual add/remove)
+  app.patch("/api/photos/:id/tags", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid photo ID" });
+
+      const photo = await storage.getPhotoById(id);
+      if (!photo) return res.status(404).json({ message: "Photo not found" });
+
+      const { tags } = req.body;
+      if (!Array.isArray(tags) || tags.some((t) => typeof t !== "string")) {
+        return res.status(400).json({ message: "tags must be an array of strings" });
+      }
+
+      const seen = new Set<string>();
+      const normalized: string[] = [];
+      for (const t of tags) {
+        const s = t.trim().toLowerCase();
+        if (s.length > 0 && !seen.has(s)) { seen.add(s); normalized.push(s); }
+      }
+
+      const updatedPhoto = await storage.updatePhoto(id, { contentTags: normalized });
+      res.json(updatedPhoto);
+    } catch (error) {
+      console.error("Error updating photo tags:", error);
+      res.status(500).json({ message: "Failed to update photo tags" });
+    }
+  });
+
   // Add description to folder (a "trace")
   app.put(
     "/api/folders/:id/description",
@@ -1010,7 +1041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : "";
 
         // Fetch the public folder page as a browser would
-        const html = await fetch(
+        const driveResp = await fetch(
           `https://drive.google.com/drive/folders/${folderId}${resourceKey ? `?resourcekey=${encodeURIComponent(resourceKey)}` : ""}`,
           {
             headers: {
@@ -1021,11 +1052,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
               "Accept-Language": "en-US,en;q=0.9",
             },
           },
-        ).then((r) => r.text());
+        );
+        const html = await driveResp.text();
+
+        // Detect redirects to Google login or explicit access-denied pages.
+        // URL checks are reliable: if the final URL (after redirect-following) lands on
+        // accounts.google.com, Drive did not serve us the folder.
+        // Title check is safe: the <title> is page-type-specific and won't contain these
+        // strings on a normal public folder page, unlike body content which includes all
+        // possible UI action labels in embedded JS regardless of folder visibility.
+        const finalUrl = driveResp.url ?? "";
+        const isAccessDenied =
+          finalUrl.includes("accounts.google.com") ||
+          /ServiceLogin|CheckCookie/.test(finalUrl) ||
+          /<title>[^<]*(Sign in - Google Accounts|Request access|You need access)[^<]*<\/title>/i.test(html);
+
+        if (isAccessDenied) {
+          return res.status(403).json({
+            message:
+              "This Google Drive folder is not accessible. Set sharing to \"Anyone with the link can view\" and try again.",
+          });
+        }
 
         // Google Drive embeds file data as JSON-like structures in the page HTML.
         // File IDs are 28–44 character base64url strings. We look for them paired
         // with image MIME types that appear nearby in the embedded data blobs.
+        // The MIME-type requirement prevents false positives from navigation tokens
+        // and other base64url-looking strings present in all Google HTML pages.
         const seen = new Set<string>();
         const files: {
           id: string;
@@ -1034,9 +1087,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           downloadUrl: string;
         }[] = [];
 
-        // Pattern: ["FILE_ID","FILE_NAME",...,"image/jpeg"] or similar
+        // Primary: unescaped format — ["FILE_ID","FILE_NAME",...,"image/jpeg"]
         const re =
-          /\["([a-zA-Z0-9_-]{25,})",\s*"([^"]+?)",(?:[^]]*?)"(image\/(?:jpeg|png|gif|webp|bmp|heic|tiff))"/g;
+          /\["([a-zA-Z0-9_-]{25,})",\s*"([^"]+?)",(?:[^]]*?)"(image\/(?:jpeg|png|gif|webp|bmp|heic|heif|tiff))"/g;
         let m: RegExpExecArray | null;
         while ((m = re.exec(html)) !== null) {
           const [, id, name] = m;
@@ -1051,16 +1104,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Fallback: look for any standalone Drive file IDs in the HTML
+        // Secondary: Drive sometimes embeds all file data as \xNN hex-escaped JS string
+        // literals. Decode them, then match the actual structure:
+        //   ["FILE_ID",["FOLDER_ID"],"FILENAME","image/type"]
+        // Only runs when the primary regex finds nothing (e.g. this specific folder type).
+        // Safe to run here because access-denied has already been checked above.
         if (files.length === 0) {
-          const idRe = /["\/]([a-zA-Z0-9_-]{33})["\/]/g;
-          while ((m = idRe.exec(html)) !== null) {
-            const id = m[1];
+          const decoded = html
+            .replace(/\\x([0-9a-fA-F]{2})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
+            .replace(/\\\//g, '/');
+          const re2 = /\["([a-zA-Z0-9_-]{25,})",\["[a-zA-Z0-9_-]+"\],"([^"]+?)","(image\/[^"]+?)"/g;
+          while ((m = re2.exec(decoded)) !== null) {
+            const [, id, name] = m;
             if (!seen.has(id)) {
               seen.add(id);
               files.push({
                 id,
-                name: `photo-${files.length + 1}.jpg`,
+                name,
                 thumbnailUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w300${resourceKeyParam}`,
                 downloadUrl: `https://drive.google.com/uc?export=download&id=${id}&confirm=t${resourceKeyParam}`,
               });
@@ -1071,7 +1131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (files.length === 0) {
           return res.status(404).json({
             message:
-              'No images found. Make sure the folder is publicly shared ("Anyone with the link can view").',
+              "No images found in this folder. Make sure the folder contains images and is shared as \"Anyone with the link can view\".",
           });
         }
 
@@ -1206,11 +1266,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await fs.promises.writeFile(rawPath, rawBuffer);
 
             try {
-              await sharp(rawBuffer)
-                .rotate()
-                .jpeg({ quality: 90 })
-                .toFile(jpgFilePath);
-
+              if (detectedType === "heif") {
+                // Sharp's bundled libheif lacks H.265/HEVC support.
+                // Use heif-convert (libheif-examples) which links system libde265.
+                await execFile("heif-convert", [rawPath, jpgFilePath], { timeout: 30_000 })
+                  .catch(async (err: any) => {
+                    const msg = err.stderr || err.message || String(err);
+                    throw new Error(`heif-convert: ${msg}`);
+                  });
+                // heif-convert produces flat JPEG; re-run through sharp for rotation only.
+                const rotated = await sharp(jpgFilePath).rotate().jpeg({ quality: 90 }).toBuffer();
+                await fs.promises.writeFile(jpgFilePath, rotated);
+              } else {
+                await sharp(rawBuffer).rotate().jpeg({ quality: 90 }).toFile(jpgFilePath);
+              }
               await fs.promises.unlink(rawPath).catch(() => {});
             } catch (convErr) {
               await fs.promises.unlink(rawPath).catch(() => {});
@@ -1223,17 +1292,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ` size=${rawBuffer.length}B` +
                 ` error="${convMessage}"`,
               );
-              // Surface HEIC/HEIF as a distinct actionable error rather than a
-              // generic conversion failure — the fix is a Docker image rebuild.
-              const isHeifUnsupported =
-                detectedType === "heif" &&
-                (convMessage.includes("plugin") ||
-                  convMessage.includes("heif") ||
-                  convMessage.includes("compression format"));
               throw new Error(
-                isHeifUnsupported
-                  ? "HEIC/HEIF format is not supported on this server — rebuild the Docker image with libheif support"
-                  : `Conversion failed (${detectedType ?? "unknown format"}): ${convMessage}`,
+                `Conversion failed (${detectedType ?? "unknown format"}): ${convMessage}`,
               );
             }
 

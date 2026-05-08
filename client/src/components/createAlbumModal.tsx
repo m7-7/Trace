@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, ChevronRight, Loader2, Images } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Check, ChevronRight, Loader2, Images, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -21,6 +23,10 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState("");
+  const [addTagsEnabled, setAddTagsEnabled] = useState(false);
+  const [pendingTags, setPendingTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
   const [, navigate] = useLocation();
 
   const { data: allPhotos = [], isLoading: photosLoading } = useQuery<Photo[]>({
@@ -60,6 +66,16 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
     setStep("photos");
   };
 
+  const commitTag = () => {
+    const tag = tagInput.trim().toLowerCase();
+    if (tag && !pendingTags.includes(tag)) {
+      setPendingTags(prev => [...prev, tag]);
+    }
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) => setPendingTags(prev => prev.filter(t => t !== tag));
+
   const handleCreate = async () => {
     if (selectedIds.size === 0) {
       toast({ title: "No photos selected", description: "Pick at least one photo", variant: "destructive" });
@@ -74,6 +90,27 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
       });
       const album = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/albums"] });
+
+      if (addTagsEnabled && pendingTags.length > 0) {
+        try {
+          await Promise.all(
+            Array.from(selectedIds).map(async (photoId) => {
+              const photo = allPhotos.find(p => p.id === photoId);
+              const existing = photo?.contentTags ?? [];
+              const seen = new Set<string>(existing);
+              const merged = [...existing];
+              for (const t of pendingTags) { if (!seen.has(t)) { seen.add(t); merged.push(t); } }
+              if (merged.length > existing.length) {
+                await apiRequest("PATCH", `/api/photos/${photoId}/tags`, { tags: merged });
+              }
+            })
+          );
+          queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+        } catch {
+          // Tags are best-effort; album was already created
+        }
+      }
+
       toast({ title: "Memory created", description: `"${albumName}" has been created with ${selectedIds.size} photo${selectedIds.size === 1 ? "" : "s"}` });
       navigate(`/albums/${album.id}`);
       onClose();
@@ -171,6 +208,51 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
                 </div>
               )}
             </div>
+
+            {/* Optional batch tagging */}
+            {selectedIds.size > 0 && (
+              <div className="border-t border-neutral-100 pt-3 space-y-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="add-tags"
+                    checked={addTagsEnabled}
+                    onCheckedChange={(v) => setAddTagsEnabled(!!v)}
+                  />
+                  <Label htmlFor="add-tags" className="text-sm cursor-pointer text-neutral-600">
+                    Add tags to selected photos
+                  </Label>
+                </div>
+                {addTagsEnabled && (
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-1 items-center">
+                      {pendingTags.map(tag => (
+                        <span key={tag} className="flex items-center gap-0.5 px-2 py-0.5 bg-neutral-100 rounded-full text-neutral-700 text-xs">
+                          {tag}
+                          <button onClick={() => removeTag(tag)} className="ml-0.5 text-neutral-400 hover:text-neutral-700 transition-colors">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        ref={tagInputRef}
+                        value={tagInput}
+                        onChange={e => setTagInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") { e.preventDefault(); commitTag(); }
+                          if (e.key === "Escape") setTagInput("");
+                        }}
+                        onBlur={commitTag}
+                        placeholder="add tag…"
+                        className="px-2 py-0.5 bg-neutral-100 rounded-full text-neutral-700 text-xs outline-none min-w-[80px] placeholder:text-neutral-400"
+                      />
+                    </div>
+                    {pendingTags.length === 0 && (
+                      <p className="text-xs text-neutral-400 italic">No tags added — photos will stay untagged.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

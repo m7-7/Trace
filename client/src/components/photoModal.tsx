@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface PhotoModalProps {
   photo: Photo;
@@ -18,6 +19,51 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   const current = photos[currentIndex] ?? photo;
   const [imageLoaded, setImageLoaded] = useState(false);
   const prevIndexRef = useRef(currentIndex);
+
+  const filterTags = (tags: string[] | null | undefined) =>
+    (tags ?? []).filter((t) => !t.startsWith("from:") && t !== "imported");
+
+  const [localTags, setLocalTags] = useState<string[]>(() => filterTags(photo.contentTags));
+  const [addingTag, setAddingTag] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLocalTags(filterTags(current.contentTags));
+    setAddingTag(false);
+    setTagInput("");
+  }, [current.id]);
+
+  useEffect(() => {
+    if (addingTag) tagInputRef.current?.focus();
+  }, [addingTag]);
+
+  const patchTags = async (newTags: string[], prev: string[]) => {
+    setLocalTags(newTags);
+    try {
+      await apiRequest("PATCH", `/api/photos/${current.id}/tags`, { tags: newTags });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos/favorites"] });
+    } catch {
+      setLocalTags(prev);
+    }
+  };
+
+  const addTag = (value: string) => {
+    const tag = value.trim().toLowerCase();
+    if (!tag || localTags.includes(tag)) return;
+    patchTags([...localTags, tag], localTags);
+  };
+
+  const removeTag = (tag: string) => {
+    patchTags(localTags.filter((t) => t !== tag), localTags);
+  };
+
+  const commitTagInput = () => {
+    addTag(tagInput);
+    setTagInput("");
+    setAddingTag(false);
+  };
 
   useEffect(() => {
     if (prevIndexRef.current !== currentIndex) {
@@ -55,7 +101,6 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
       : `${(current.fileSize / 1024).toFixed(0)} KB`
     : null;
 
-  const relevantTags = (current.contentTags ?? []).filter(t => !t.startsWith("from:") && t !== "imported");
 
   return (
     <div
@@ -150,21 +195,58 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
             )}
 
             {/* Tags */}
-            {relevantTags.length > 0 && (
-              <div className="flex items-start gap-2.5">
-                <Tag className="h-4 w-4 text-neutral-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-neutral-400 text-xs mb-1.5">Tags</p>
-                  <div className="flex flex-wrap gap-1">
-                    {relevantTags.map((tag, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-neutral-800 rounded-full text-neutral-300 text-xs capitalize">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+            <div className="flex items-start gap-2.5">
+              <Tag className="h-4 w-4 text-neutral-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-neutral-400 text-xs">Tags</p>
+                  {!addingTag && (
+                    <button
+                      onClick={() => setAddingTag(true)}
+                      className="text-xs text-neutral-400 hover:text-white transition-colors"
+                    >
+                      + Add tag
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {localTags.map((tag) => (
+                    <span key={tag} className="group/tag flex items-center gap-0.5 px-2 py-0.5 bg-neutral-800 rounded-full text-neutral-300 text-xs capitalize">
+                      {tag}
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="opacity-0 group-hover/tag:opacity-100 transition-opacity ml-0.5"
+                        title={`Remove ${tag}`}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                  {localTags.length === 0 && !addingTag && (
+                    <button
+                      onClick={() => setAddingTag(true)}
+                      className="text-neutral-600 hover:text-neutral-400 text-xs italic transition-colors"
+                    >
+                      No tags yet
+                    </button>
+                  )}
+                  {addingTag && (
+                    <input
+                      ref={tagInputRef}
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); commitTagInput(); }
+                        if (e.key === "Escape") { setTagInput(""); setAddingTag(false); }
+                      }}
+                      onBlur={commitTagInput}
+                      placeholder="add tag…"
+                      className="px-2 py-0.5 bg-neutral-700 rounded-full text-neutral-300 text-xs outline-none w-20 placeholder:text-neutral-500"
+                    />
+                  )}
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Location */}
             {current.location && (

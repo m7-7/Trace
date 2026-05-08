@@ -2,23 +2,15 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Build tools + libvips/libheif/libde265 dev headers so sharp compiles
-# from source against system libvips (which includes full HEIF/H.265 support).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
     ca-certificates \
-    libvips-dev \
-    libheif-dev \
-    libde265-dev \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-# npm ci installs node-addon-api and node-gyp (devDependencies) which
-# sharp's binding.gyp requires when rebuilding from source.
-RUN npm ci && \
-    npm_config_build_from_source=true npm rebuild sharp
+RUN npm ci
 
 COPY . .
 
@@ -31,22 +23,18 @@ FROM node:20-slim AS runner
 
 WORKDIR /app
 
-# Runtime libraries that match the system libvips sharp was compiled against.
-# libvips42   — libvips runtime
-# libheif1    — HEIF codec (reads HEIC/HEIF containers)
-# libde265-0  — H.265/HEVC decoder (used by virtually all iPhone HEIC files)
+# libheif-examples  — provides heif-convert CLI for HEIC → JPEG conversion
+# libde265-0        — H.265/HEVC decoder required by libheif for iPhone HEIC files
+# Sharp uses its own bundled libvips (8.17.3) for all other formats.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     imagemagick \
-    libvips42 \
-    libheif1 \
+    libheif-examples \
     libde265-0 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-# Copy node_modules from builder — sharp's .node file was compiled against
-# the system libvips above and must not be re-downloaded as a prebuilt binary.
-COPY --from=builder /app/node_modules ./node_modules
+RUN npm ci
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations

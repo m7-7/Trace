@@ -82,13 +82,21 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
       setSelectAll(true);
       toast({ title: "Folder scanned", description: `Found ${previews.length} image${previews.length === 1 ? "" : "s"}` });
     } catch (err) {
-      setError("Could not reach Google Drive. Check the URL and try again.");
+      let msg = "Could not reach Google Drive. Check the URL and try again.";
+      if (err instanceof Error) {
+        try {
+          const body = err.message.replace(/^\d+:\s*/, "");
+          const parsed = JSON.parse(body);
+          if (typeof parsed.message === "string") msg = parsed.message;
+        } catch {}
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // --- Direct URLs fetch (Dropbox / any public image link) ---
+  // --- Direct URLs fetch (direct image file links only) ---
   const handleFetchDirect = () => {
     const lines = directUrls
       .split(/[\n,]+/)
@@ -97,6 +105,29 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
 
     if (lines.length === 0) {
       toast({ title: "No URLs", description: "Enter at least one image URL", variant: "destructive" });
+      return;
+    }
+
+    // Detect Dropbox folder/share links before processing — these cannot be
+    // listed or imported; only direct per-file links are supported.
+    const dropboxFolderPattern = /dropbox\.com\/(sh\/|scl\/fo\/|folder\/|home\/)/i;
+    const folderLinks = lines.filter(url => dropboxFolderPattern.test(url));
+    if (folderLinks.length > 0) {
+      setError(
+        "Dropbox folder links are not supported — only direct image file links work here. " +
+        "Open the Dropbox folder, click the three-dot menu on each photo, copy the direct link, and paste those instead."
+      );
+      setImagePreviews([]);
+      return;
+    }
+
+    const icloudLinks = lines.filter(url => /share\.icloud\.com\/photos\//i.test(url));
+    if (icloudLinks.length > 0) {
+      setError(
+        "iCloud photo share links can't be imported directly — the photo is only accessible inside a browser. " +
+        "Download the photo from iCloud and upload it manually instead."
+      );
+      setImagePreviews([]);
       return;
     }
 
@@ -274,7 +305,14 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
               <span className="text-sm text-muted-foreground">{selectedCount} of {imagePreviews.length} selected</span>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
+            {activeTab === "google-drive" && (
+            <p className="text-xs text-muted-foreground">
+              {driveUrl.includes("resourcekey=")
+                ? "Some Google Drive previews may appear blank for resource-key folders. Import should still work for publicly shared photos."
+                : "Previews may not load for all files — import will still work for publicly shared photos."}
+            </p>
+          )}
+          <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
               {imagePreviews.map(img => (
                 <div
                   key={img.id}
@@ -287,7 +325,7 @@ export function ImportFromUrlModal({ onClose }: ImportFromUrlModalProps) {
                     src={img.thumbnailUrl}
                     alt={img.name}
                     className="w-full h-full object-cover bg-neutral-100"
-                    onError={e => { (e.target as HTMLImageElement).src = ""; }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                   {img.selected && (
                     <div className="absolute top-1 right-1 bg-blue-700 text-white rounded-full p-0.5">
