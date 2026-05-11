@@ -14,7 +14,7 @@
 
 import fs from "fs";
 import path from "path";
-import postgres from "postgres";
+import Database from "better-sqlite3";
 
 // Load .env from project root (no dotenv dependency needed)
 const envPath = path.join(process.cwd(), ".env");
@@ -30,19 +30,13 @@ if (fs.existsSync(envPath)) {
 const DELETE_MODE = process.argv.includes("--delete");
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 
-async function main() {
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL environment variable is not set.");
-    process.exit(1);
-  }
-
-  const sql = postgres(process.env.DATABASE_URL, { max: 1 });
+function main() {
+  const dbPath = path.resolve(process.env.DATABASE_PATH ?? "./trace.db");
+  const db = new Database(dbPath, { readonly: true });
 
   try {
     // Fetch every file_path the DB currently references.
-    const rows = await sql<{ file_path: string }[]>`
-      SELECT file_path FROM photos
-    `;
+    const rows = db.prepare("SELECT file_path FROM photos").all() as { file_path: string }[];
     const referencedPaths = new Set(rows.map((r) => r.file_path));
 
     console.log(`DB references: ${referencedPaths.size} file(s)`);
@@ -103,11 +97,13 @@ async function main() {
     }
     console.log(`\nDeleted ${deleted} file(s)${failed > 0 ? `, ${failed} failed` : ""}.`);
   } finally {
-    await sql.end();
+    db.close();
   }
 }
 
-main().catch((err) => {
+try {
+  main();
+} catch (err) {
   console.error(err);
   process.exit(1);
-});
+}
