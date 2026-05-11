@@ -6,41 +6,14 @@ services:
     ports:
       - "5000:5000"
     environment:
-      DATABASE_URL: postgres://trace:trace@db:5432/trace
-      PGHOST: db
-      PGPORT: 5432
-      PGUSER: trace
-      PGPASSWORD: trace
-      PGDATABASE: trace
+      DATABASE_PATH: /app/data/trace.db
       NODE_ENV: production
       SESSION_SECRET: ${SESSION_SECRET}
     volumes:
       - ./uploads:/app/uploads
-      # To scan local photo folders, mount them under /app/media/ then add them
-      # in Trace via Add Folder using the container path (e.g. /app/media/Pictures).
-      # Restart the container after adding a new volume mount.
-      # Example:
+      - ./data:/app/data
+      # To scan local photo folders in Docker, add volume mounts here and use
+      # the container path when adding folders in Trace. Example:
       # - /home/andreas/Pictures:/app/media/Pictures
-    depends_on:
-      db:
-        condition: service_healthy
+      # Then add /app/media/Pictures as a folder in the Trace UI.
     restart: unless-stopped
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: trace
-      POSTGRES_PASSWORD: trace
-      POSTGRES_DB: trace
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trace -d trace"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-volumes:
-  pgdata:
-  uploads:
