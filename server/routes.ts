@@ -10,6 +10,7 @@ const execFile = promisify(execFileCb);
 import { promises as dnsPromises } from "dns";
 import { analyzeImage, initializeModel, modelStatus } from "./imageRecognition";
 import sharp from "sharp";
+import { resolveUploadsDir } from "./paths";
 import {
   insertPhotoSchema,
   insertFolderSchema,
@@ -1170,7 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const importResults = [];
 
         // Ensure uploads directory exists once
-        await fs.promises.mkdir(path.join(process.cwd(), "uploads"), {
+        await fs.promises.mkdir(resolveUploadsDir(), {
           recursive: true,
         });
 
@@ -1256,18 +1257,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const safeBaseName = baseName.replace(/[^a-z0-9_-]/gi, "_");
 
             const rawFileName = `import_${importId}_${i}_${safeBaseName}${ext}`;
-            const rawPath = path.join(
-              process.cwd(),
-              "uploads",
-              rawFileName + ".raw",
-            );
+            const uploadsDir = resolveUploadsDir();
+            const rawPath = path.join(uploadsDir, rawFileName + ".raw");
 
             const jpgFileName = `import_${importId}_${i}_${safeBaseName}.jpg`;
-            const jpgFilePath = path.join(
-              process.cwd(),
-              "uploads",
-              jpgFileName,
-            );
+            const jpgFilePath = path.join(uploadsDir, jpgFileName);
 
             await fs.promises.writeFile(rawPath, rawBuffer);
 

@@ -1,10 +1,9 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "@shared/schema";
-import path from "path";
+import { resolveDbPath } from "./paths";
 
-const dbPath = process.env.DATABASE_PATH ?? "./trace.db";
-const sqlite = new Database(path.resolve(dbPath));
+const sqlite = new Database(resolveDbPath());
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
 
