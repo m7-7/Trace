@@ -371,32 +371,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid folder path" });
       }
 
-      // Resolve to an absolute path and assert it lives under one of the two
-      // allowed roots that are exposed to the container via volume mounts.
       const resolvedPath = path.resolve(folderData.path);
-      const allowedRoots = ["/app/media", "/app/uploads"];
-      const underAllowedRoot = allowedRoots.some(
-        (root) => resolvedPath === root || resolvedPath.startsWith(root + path.sep)
-      );
-      if (!underAllowedRoot) {
-        return res.status(400).json({
-          message:
-            `Path must be under /app/media/ or /app/uploads/. ` +
-            `To scan a host folder, add a volume mount in docker-compose.yml:\n` +
-            `  - /host/path/to/photos:${resolvedPath}\nthen restart the container.`,
-        });
-      }
 
-      // Verify the path actually exists and is readable inside the container.
+      // Verify the path exists, is a directory, and is readable.
+      try {
+        const stat = await fs.promises.stat(resolvedPath);
+        if (!stat.isDirectory()) {
+          return res.status(400).json({ message: `"${resolvedPath}" is not a directory.` });
+        }
+      } catch {
+        return res.status(400).json({ message: `"${resolvedPath}" does not exist or is not accessible.` });
+      }
       try {
         await fs.promises.access(resolvedPath, fs.constants.R_OK);
       } catch {
-        return res.status(400).json({
-          message:
-            `"${resolvedPath}" is not accessible inside the container. ` +
-            `Add a volume mount in docker-compose.yml:\n` +
-            `  - /host/path/to/photos:${resolvedPath}\nthen restart and try again.`,
-        });
+        return res.status(400).json({ message: `"${resolvedPath}" is not readable.` });
       }
 
       folderData.path = resolvedPath;

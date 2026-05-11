@@ -1,25 +1,19 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import path from "path";
 
-async function main() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error("DATABASE_URL is not set");
-    process.exit(1);
-  }
+const dbPath = process.env.DATABASE_PATH ?? "./trace.db";
+const sqlite = new Database(path.resolve(dbPath));
+const db = drizzle(sqlite);
 
-  const client = postgres(url, { max: 1 });
-  const db = drizzle(client);
-
-  console.log("Applying database migrations...");
-  await migrate(db, { migrationsFolder: "./migrations" });
+console.log("Applying database migrations...");
+try {
+  migrate(db, { migrationsFolder: path.resolve("./migrations-sqlite") });
   console.log("Migrations complete.");
-
-  await client.end();
-}
-
-main().catch((err) => {
+} catch (err) {
   console.error("Migration failed:", err);
   process.exit(1);
-});
+} finally {
+  sqlite.close();
+}

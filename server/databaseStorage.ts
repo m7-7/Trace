@@ -75,13 +75,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPhotosByTags(tags: string[]): Promise<Photo[]> {
-    // This is a bit tricky with SQL, need to check for array overlap
+    if (tags.length === 0) return [];
+    const conditions = tags.map(tag =>
+      sql`exists (select 1 from json_each(${photos.contentTags}) where json_each.value = ${tag})`
+    );
     return await db
       .select()
       .from(photos)
-      .where(
-        sql`${photos.contentTags} && ${tags}`
-      )
+      .where(or(...conditions))
       .orderBy(desc(photos.createdAt));
   }
 
@@ -100,7 +101,7 @@ export class DatabaseStorage implements IStorage {
         return or(
           like(sql`lower(${photos.fileName})`, likeTerm),
           like(sql`lower(${photos.location})`, likeTerm),
-          sql`exists (select 1 from unnest(${photos.contentTags}) as tag where lower(tag) like ${likeTerm})`
+          sql`exists (select 1 from json_each(${photos.contentTags}) where lower(json_each.value) like ${likeTerm})`
         );
       });
       
