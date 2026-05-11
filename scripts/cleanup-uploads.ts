@@ -15,8 +15,9 @@
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
+import { resolveDbPath, resolveUploadsDir } from "../server/paths";
 
-// Load .env from project root (no dotenv dependency needed)
+// Load .env before any path resolution so DATABASE_PATH is visible to resolveDbPath().
 const envPath = path.join(process.cwd(), ".env");
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
@@ -28,10 +29,10 @@ if (fs.existsSync(envPath)) {
 }
 
 const DELETE_MODE = process.argv.includes("--delete");
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 
 function main() {
-  const dbPath = path.resolve(process.env.DATABASE_PATH ?? "./trace.db");
+  const dbPath = resolveDbPath();
+  const uploadsDir = resolveUploadsDir();
   const db = new Database(dbPath, { readonly: true });
 
   try {
@@ -45,11 +46,11 @@ function main() {
     let uploadedFiles: string[];
     try {
       uploadedFiles = fs
-        .readdirSync(UPLOADS_DIR)
+        .readdirSync(uploadsDir)
         .filter((f) => !f.startsWith("."))
-        .map((f) => path.join(UPLOADS_DIR, f));
+        .map((f) => path.join(uploadsDir, f));
     } catch {
-      console.error(`Could not read uploads directory: ${UPLOADS_DIR}`);
+      console.error(`Could not read uploads directory: ${uploadsDir}`);
       process.exit(1);
     }
 

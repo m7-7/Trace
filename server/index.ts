@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { buildSessionMiddleware } from "./auth";
+import { ensureUploadsDir } from "./paths";
 import path from "path";
 import { execSync } from "child_process";
 import sharp from "sharp";
@@ -93,6 +94,7 @@ function logSharpDiagnostics() {
 }
 
 (async () => {
+  ensureUploadsDir();
   logSharpDiagnostics();
   const server = await registerRoutes(app);
 
