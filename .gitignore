@@ -9,4 +9,8 @@ vite.config.ts.*
 .env.*
 !.env.example
 uploads/
+data/
+*.db
+*.db-shm
+*.db-wal
 server/imagenet_classes.json
