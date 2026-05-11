@@ -1,11 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
-import createMemoryStore from "memorystore";
 import { scrypt, timingSafeEqual, randomBytes } from "crypto";
 import { promisify } from "util";
+import { SqliteSessionStore } from "./session-store";
 
 const scryptAsync = promisify(scrypt);
-const MemoryStore = createMemoryStore(session);
 
 export const ADMIN_USERNAME = "admin";
 
@@ -20,7 +19,7 @@ export function buildSessionMiddleware() {
   if (!secret) throw new Error("SESSION_SECRET is required in .env");
 
   return session({
-    store: new MemoryStore({ checkPeriod: 86400000 }),
+    store: new SqliteSessionStore(),
     secret,
     resave: false,
     saveUninitialized: false,
