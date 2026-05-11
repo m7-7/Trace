@@ -4,29 +4,19 @@ A self-hosted, single-user photo memory and journaling app with AI-powered image
 
 ---
 
-## Requirements
+## Running with Docker
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/)
-- A `.env` file with a session secret (see below)
+The simplest way to run Trace. No Node installation required.
 
----
+**Requirements:** Docker and Docker Compose.
 
-## First-time setup
-
-### 1. Clone the repo
+### Setup
 
 ```bash
 git clone <repo-url>
 cd trace
-```
-
-### 2. Create your `.env` file
-
-```bash
 cp .env.example .env
 ```
-
-`.env` is never committed. It is listed in `.gitignore` and must stay local.
 
 Open `.env` and set `SESSION_SECRET` to a long random string:
 
@@ -34,116 +24,154 @@ Open `.env` and set `SESSION_SECRET` to a long random string:
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
-Paste the output as the value of `SESSION_SECRET`.
-
-### 3. Start the app
+Then start the app:
 
 ```bash
 docker compose up -d
 ```
 
-This builds the image, runs database migrations, and starts both services.
+Open `http://localhost:5000`. On first launch, Trace shows a **Create account** screen. Enter a password (minimum 10 characters). This is the only account — there is no username field.
 
-### 4. Create your admin account
+### What Docker manages
 
-Open `http://localhost:5000` in your browser.
+- Builds the app from source
+- Runs database migrations automatically on every startup
+- Stores the database at `./data/trace.db` on the host (bind-mounted into the container)
+- Stores uploaded photos at `./uploads/` on the host (bind-mounted)
 
-On first launch, Trace shows a **Create account** screen. Enter a password
-(minimum 10 characters). This is the only account — there is no username field.
-The password is stored as a hashed value in the database; it is never logged.
+Both `data/` and `uploads/` are plain host directories — there are no Docker-managed volumes.
 
-On all subsequent launches, Trace shows a normal login form.
+---
+
+## Running locally (without Docker)
+
+**Requirements:** Node 20.
+
+```bash
+cp .env.example .env
+# set SESSION_SECRET in .env
+
+npm install
+```
+
+Apply the database schema before first run:
+
+```bash
+DATABASE_PATH=./data/trace.db npx drizzle-kit push
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+> **Note:** `npm run dev` does not run migrations. If the schema changes (new migration files added), re-run `npx drizzle-kit push` or use the build + migrate flow below.
+
+For a production-like local run:
+
+```bash
+npm run build
+node dist/migrate.js   # applies pending migrations
+npm start
+```
+
+---
+
+## Storage
+
+### Database
+
+The database is a single SQLite file. All metadata, albums, journals, and the user account live here.
+
+| Mode | Default location |
+|---|---|
+| Docker | `./data/trace.db` on the host (bind-mounted to `/app/data/trace.db` in the container) |
+| Local | `./data/trace.db` relative to the working directory |
+
+Set `DATABASE_PATH` in `.env` to use a different location. The `data/` directory is created automatically on startup if it does not exist.
+
+All path resolution goes through `server/paths.ts` — that is the single file to update if the storage location ever needs to change (e.g. for a desktop packaging context).
+
+### Uploads
+
+Imported photos and videos are stored in `./uploads/`. In Docker, `./uploads/` on the host is bind-mounted to `/app/uploads` inside the container.
+
+### Scanning local photo folders with Docker
+
+To scan folders already on the host, add volume mounts in `docker-compose.yaml`:
+
+```yaml
+volumes:
+  - ./uploads:/app/uploads
+  - ./data:/app/data
+  - /home/user/Pictures:/app/media/Pictures  # add host folder here
+```
+
+Then add `/app/media/Pictures` as a folder in the Trace UI. The path you enter in the UI must be the container-side path, not the host path.
 
 ---
 
 ## Environment variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `SESSION_SECRET` | **Yes** | Random 64-char hex string. Signs session cookies. Changing it logs everyone out. |
-| `DATABASE_URL` | Local dev only | PostgreSQL connection string. Set automatically by Docker Compose. |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SESSION_SECRET` | **Yes** | — | Long random string. Signs session cookies. Changing it logs everyone out. |
+| `DATABASE_PATH` | No | `./data/trace.db` | Path to the SQLite database file. Docker Compose sets this automatically. |
 
 Generate `SESSION_SECRET`:
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
----
-
-## Local development (without Docker)
-
-Requires Node 20 and a running PostgreSQL instance.
-
-```bash
-cp .env.example .env
-# fill in SESSION_SECRET and DATABASE_URL in .env
-
-npm install
-npm run dev
-```
-
-Apply the database schema:
-```bash
-npm run db:push
-```
+`.env` is never committed — it is listed in `.gitignore`.
 
 ---
 
-## Backup and restore
+## Backup
 
 ### Database
 
-**Backup** (produces a plain-SQL file):
+The database is a single file. Back it up while the app is stopped, or use SQLite's online backup to avoid stopping:
+
+**File copy (stop app first):**
 ```bash
-docker compose exec db pg_dump -U trace trace > backup_$(date +%Y%m%d).sql
+# Docker
+docker compose stop
+cp data/trace.db backup_$(date +%Y%m%d).db
+docker compose start
+
+# Local
+cp data/trace.db backup_$(date +%Y%m%d).db
 ```
 
-**Restore** (stop the app first to avoid conflicts):
+**Online backup (app can stay running):**
 ```bash
-docker compose stop app
-docker compose exec -T db psql -U trace trace < backup_YYYYMMDD.sql
-docker compose start app
+sqlite3 data/trace.db ".backup backup_$(date +%Y%m%d).db"
 ```
 
-For large libraries, use the custom format (`-Fc`) for a compressed binary dump
-and `pg_restore` to replay it — faster and smaller than plain SQL.
+In Docker, the database is on the host at `./data/trace.db` — back it up from the host with either method above.
 
-### Uploads directory
+### Uploads
 
-The `./uploads/` folder on the host holds all imported photos and videos.
-It is bind-mounted into the container and is not inside any Docker volume.
-
-**Backup:**
 ```bash
 tar -czf uploads_$(date +%Y%m%d).tar.gz uploads/
 ```
 
-**Restore:**
-```bash
-tar -xzf uploads_YYYYMMDD.tar.gz
-```
-
 ### What to back up
 
-| Location | What | How often |
+| Path | Contents | When |
 |---|---|---|
-| `backup_YYYYMMDD.sql` | All metadata, albums, journals, user account | After changes |
-| `uploads_YYYYMMDD.tar.gz` | All photo and video files | After imports |
+| `data/trace.db` | All metadata, albums, journals, user account | After any changes |
+| `uploads/` | All photo and video files | After imports |
 
-Keep both together — a database backup without its matching uploads (or vice versa)
-will have broken references.
+Keep both together — a database backup without its matching uploads will have broken references.
 
 ---
 
 ## LAN exposure
 
-By default the app binds to `0.0.0.0:5000` and is reachable by any device on
-your local network. Authentication is required to access any content.
+By default, Trace binds to `0.0.0.0:5000` and is reachable by any device on your local network. Authentication is required to access any content.
 
-**Do not expose port 5000 directly to the internet.** If you need remote access:
-
-- Place Trace behind a reverse proxy (nginx, Caddy) with a valid TLS certificate.
-- Restrict access by IP or VPN rather than opening the port publicly.
-- The session cookie is marked `httpOnly` and `sameSite: lax` but is **not**
-  `secure` — it will be sent over plain HTTP. On a trusted LAN this is acceptable;
-  over the internet it is not.
+**Do not expose port 5000 directly to the internet.** If you need remote access, place Trace behind a reverse proxy (nginx, Caddy) with a valid TLS certificate. The session cookie is marked `httpOnly` and `sameSite: lax` but is not `secure` — it is sent over plain HTTP. On a trusted LAN this is acceptable; over the internet it is not.
