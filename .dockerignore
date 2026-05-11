@@ -8,6 +8,10 @@ migrations
 .upm
 attached_assets
 uploads
+data
+*.db
+*.db-shm
+*.db-wal
 *.md
 .gitignore
 .replit
