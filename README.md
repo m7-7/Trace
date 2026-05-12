@@ -45,7 +45,7 @@ Both `data/` and `uploads/` are plain host directories — there are no Docker-m
 
 ## Running locally (without Docker)
 
-**Requirements:** Node 20.
+**Requirements:** Node 20+.
 
 ```bash
 cp .env.example .env
@@ -75,6 +75,48 @@ npm run build
 node dist/migrate.js   # applies pending migrations
 npm start
 ```
+
+---
+
+## Electron (Desktop Prototype)
+
+> **Prototype only.** This is a minimal desktop shell — no installer, no auto-update, no packaging. The goal is to verify that Trace launches as a native desktop window.
+
+**Requirements:** Same as "Running locally" above — Node 20+, `.env` with `SESSION_SECRET`, `npm install`.
+
+### Production mode (single command)
+
+Builds the client and server, then opens Trace in a desktop window. Express runs as a child process; closing the window stops it.
+
+```bash
+npm run electron:start
+```
+
+### Dev mode (two terminals)
+
+```bash
+# terminal 1 — start the dev server with Vite HMR
+npm run dev
+
+# terminal 2 — once "serving on port 5000" appears, open the Electron window
+npm run electron:dev
+```
+
+`electron:dev` skips the build step and connects to the already-running dev server, so hot-reload works normally.
+
+### Electron scripts reference
+
+| Script | What it does |
+|---|---|
+| `electron:build` | Compiles `electron/main.ts` → `dist/electron/main.js` |
+| `electron:dev` | Builds Electron main, opens window against existing dev server on port 5000 |
+| `electron:start` | Full build (client + server + Electron main), spawns Express, opens window |
+
+### Setup notes
+
+- **Port 5000 must be free** before launching. If the Docker container `trace-app-1` is running, it binds port 5000 on the host. Stop it first: `docker stop trace-app-1`.
+- **Node.js version change:** `better-sqlite3` is a native addon compiled against a specific Node ABI. If you switch Node versions, run `npm rebuild better-sqlite3` before starting.
+- **`.env` required:** `SESSION_SECRET` must be set. Copy `.env.example` to `.env` and generate a value if you have not already.
 
 ---
 
