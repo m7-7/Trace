@@ -47,6 +47,14 @@ Both `data/` and `uploads/` are plain host directories — there are no Docker-m
 
 **Requirements:** Node 20+.
 
+For reliable HEIC import (iPhone photos), also install `libheif-examples`:
+
+```bash
+sudo apt install libheif-examples
+```
+
+Docker handles this automatically. On other platforms, HEIC files encoded with HEVC (H.265) will fail to import without this package.
+
 ```bash
 cp .env.example .env
 # set SESSION_SECRET in .env

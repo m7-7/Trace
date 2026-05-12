@@ -1277,7 +1277,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   await fs.promises.writeFile(jpgFilePath, rotated);
                 } catch (heifErr: any) {
                   if (heifErr.code === "ENOENT") {
-                    await sharp(rawPath).rotate().jpeg({ quality: 90 }).toFile(jpgFilePath);
+                    try {
+                      await sharp(rawPath).rotate().jpeg({ quality: 90 }).toFile(jpgFilePath);
+                    } catch {
+                      throw new Error(
+                        "HEIC conversion requires heif-convert — install it with: sudo apt install libheif-examples",
+                      );
+                    }
                   } else {
                     const msg = heifErr.stderr || heifErr.message || String(heifErr);
                     throw new Error(`heif-convert: ${msg}`);
