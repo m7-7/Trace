@@ -1,8 +1,11 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import { spawn, type ChildProcess } from 'child_process';
+import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = 5000;
 
@@ -56,11 +59,19 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
   win.loadURL(`http://localhost:${PORT}`);
   win.on('closed', () => { win = null; });
 }
+
+ipcMain.handle('pick-folder', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+  });
+  return canceled ? null : (filePaths[0] ?? null);
+});
 
 app.whenReady().then(async () => {
   if (process.env.ELECTRON_DEV !== '1') {

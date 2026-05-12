@@ -9,6 +9,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import { useModal, ModalType } from "@/lib/modalContext";
 
+const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
+
 export function Sidebar() {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -30,11 +32,16 @@ export function Sidebar() {
     setIsMobileOpen(!isMobileOpen);
   };
   
+  const handleBrowse = async () => {
+    const picked = await window.electronAPI!.pickFolder();
+    if (picked) setNewFolderPath(picked);
+  };
+
   const handleAddFolder = async () => {
     if (!newFolderPath.trim() || !newFolderName.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please provide both a name and a container path for the folder",
+        description: "Please provide both a name and a path for the folder",
         variant: "destructive"
       });
       return;
@@ -334,25 +341,47 @@ export function Sidebar() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="folder-path" className="text-sm font-medium dark:text-white">Container Path</label>
-              <Input
-                id="folder-path"
-                placeholder="/app/media/Pictures"
-                value={newFolderPath}
-                onChange={(e) => setNewFolderPath(e.target.value)}
-                className="dark:bg-gray-800 dark:border-gray-700 dark:text-white font-mono text-sm"
-              />
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Path must be under <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">/app/media/</code> or <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">/app/uploads/</code>.
-                Mount your host folder first in <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">docker-compose.yml</code>:
-              </p>
-              <pre className="text-xs bg-neutral-100 dark:bg-neutral-800 rounded p-2 text-neutral-600 dark:text-neutral-300 overflow-x-auto">
+              <label htmlFor="folder-path" className="text-sm font-medium dark:text-white">
+                {isElectron ? "Local Folder Path" : "Container Path"}
+              </label>
+              <div className={isElectron ? "flex gap-2" : undefined}>
+                <Input
+                  id="folder-path"
+                  placeholder={isElectron ? "/home/user/Pictures" : "/app/media/Pictures"}
+                  value={newFolderPath}
+                  onChange={(e) => setNewFolderPath(e.target.value)}
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-white font-mono text-sm"
+                />
+                {isElectron && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBrowse}
+                    className="shrink-0 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
+                  >
+                    Browse…
+                  </Button>
+                )}
+              </div>
+              {isElectron ? (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Use Browse to pick a folder, or type the path directly.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Path must be under <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">/app/media/</code> or <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">/app/uploads/</code>.
+                    Mount your host folder first in <code className="bg-neutral-100 dark:bg-neutral-700 px-1 rounded">docker-compose.yml</code>:
+                  </p>
+                  <pre className="text-xs bg-neutral-100 dark:bg-neutral-800 rounded p-2 text-neutral-600 dark:text-neutral-300 overflow-x-auto">
 {`volumes:
   - /host/path/to/photos:/app/media/Pictures`}
-              </pre>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Then restart the container before adding the folder here.
-              </p>
+                  </pre>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Then restart the container before adding the folder here.
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <DialogFooter>
