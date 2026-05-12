@@ -1267,16 +1267,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             try {
               if (detectedType === "heif") {
-                // Sharp's bundled libheif lacks H.265/HEVC support.
-                // Use heif-convert (libheif-examples) which links system libde265.
-                await execFile("heif-convert", [rawPath, jpgFilePath], { timeout: 30_000 })
-                  .catch(async (err: any) => {
-                    const msg = err.stderr || err.message || String(err);
+                // Prefer heif-convert (libheif-examples) which links system libde265 for HEVC.
+                // Fall back to sharp when heif-convert is not installed (ENOENT) — works when
+                // the host has libde265 and sharp was built against system libheif.
+                try {
+                  await execFile("heif-convert", [rawPath, jpgFilePath], { timeout: 30_000 });
+                  // heif-convert produces flat JPEG; re-run through sharp for rotation only.
+                  const rotated = await sharp(jpgFilePath).rotate().jpeg({ quality: 90 }).toBuffer();
+                  await fs.promises.writeFile(jpgFilePath, rotated);
+                } catch (heifErr: any) {
+                  if (heifErr.code === "ENOENT") {
+                    await sharp(rawPath).rotate().jpeg({ quality: 90 }).toFile(jpgFilePath);
+                  } else {
+                    const msg = heifErr.stderr || heifErr.message || String(heifErr);
                     throw new Error(`heif-convert: ${msg}`);
-                  });
-                // heif-convert produces flat JPEG; re-run through sharp for rotation only.
-                const rotated = await sharp(jpgFilePath).rotate().jpeg({ quality: 90 }).toBuffer();
-                await fs.promises.writeFile(jpgFilePath, rotated);
+                  }
+                }
               } else {
                 await sharp(rawBuffer).rotate().jpeg({ quality: 90 }).toFile(jpgFilePath);
               }
