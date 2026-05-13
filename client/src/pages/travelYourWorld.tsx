@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -6,6 +6,7 @@ import "@/lib/leafletConfig";
 import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
 import { PhotoCard } from "@/components/photoCard";
+import { X } from "lucide-react";
 
 interface TravelData {
   placed: Photo[];
@@ -68,6 +69,8 @@ export default function TravelYourWorld() {
   const unplacedCount = unplaced.length;
   const clusters = clusterPhotos(placed);
 
+  const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
+
   const totalPhotos = placed.length;
   const totalPlaces = clusters.length;
 
@@ -116,7 +119,7 @@ export default function TravelYourWorld() {
           </div>
 
           {/* Map */}
-          <div className="rounded-lg overflow-hidden border border-neutral-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800">
+          <div className="isolate rounded-lg overflow-hidden border border-neutral-100 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800">
             <div className="h-[60vh] w-full">
               <MapContainer
                 center={mapCenter}
@@ -164,7 +167,8 @@ export default function TravelYourWorld() {
                 {clusters.map((cluster) => (
                   <div
                     key={cluster.key}
-                    className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-neutral-100 dark:border-gray-700 hover:shadow-md transition-shadow"
+                    onClick={() => setSelectedCluster(cluster)}
+                    className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-neutral-100 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer"
                   >
                     <div className="h-32 bg-neutral-100 dark:bg-gray-700">
                       <img
@@ -181,7 +185,7 @@ export default function TravelYourWorld() {
                         {cluster.label}
                       </div>
                       <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        {cluster.photos.length} {cluster.photos.length === 1 ? "photo" : "photos"}
+                        {cluster.photos.length} {cluster.photos.length === 1 ? "memory" : "memories"} here
                       </div>
                     </div>
                   </div>
@@ -221,6 +225,47 @@ export default function TravelYourWorld() {
           )}
         </main>
       </div>
+
+      {/* Place detail overlay */}
+      {selectedCluster && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedCluster(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl max-h-[85vh] mx-4 rounded-2xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between p-5 border-b border-neutral-100 dark:border-gray-800 shrink-0">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-0.5">Place</p>
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 leading-tight">
+                  {selectedCluster.label}
+                </h2>
+                <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">
+                  {selectedCluster.photos.length} {selectedCluster.photos.length === 1 ? "memory" : "memories"} here
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCluster(null)}
+                className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-gray-800 transition-colors text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Photos */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {selectedCluster.photos.map(photo => (
+                  <PhotoCard key={photo.id} photo={photo} allPhotos={selectedCluster.photos} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
