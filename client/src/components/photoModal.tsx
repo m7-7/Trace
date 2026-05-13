@@ -21,7 +21,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   const prevIndexRef = useRef(currentIndex);
 
   const filterTags = (tags: string[] | null | undefined) =>
-    (tags ?? []).filter((t) => !t.startsWith("from:") && t !== "imported");
+    (tags ?? []).filter((t) => !t.startsWith("from:") && !t.startsWith("error_") && t !== "imported");
 
   const [localTags, setLocalTags] = useState<string[]>(() => filterTags(photo.contentTags));
   const [addingTag, setAddingTag] = useState(false);

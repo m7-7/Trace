@@ -467,10 +467,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          // Extract content tags for images
+          // Extract content tags for images; strip internal error strings before persisting
           let contentTags: string[] = [];
           if (metadata.fileType === "image") {
-            contentTags = await analyzeImage(filePath);
+            const raw = await analyzeImage(filePath);
+            contentTags = raw.filter(t => !t.startsWith("error_"));
           }
 
           // Create photo record
