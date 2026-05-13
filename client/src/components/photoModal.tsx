@@ -28,6 +28,8 @@ function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => voi
   return null;
 }
 
+type PlaceResult = { name: string; country: string; lat: number; lng: number };
+
 interface PhotoModalProps {
   photo: Photo;
   allPhotos?: Photo[];
@@ -57,10 +59,14 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   const [localLocationName, setLocalLocationName] = useState<string>(current.location ?? "");
   const [placingMode, setPlacingMode] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<Coords | null>(null);
-  const [locationInput, setLocationInput] = useState("");
   const [isSavingLocation, setIsSavingLocation] = useState(false);
   const placingModeRef = useRef(false);
   placingModeRef.current = placingMode;
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     setLocalTags(filterTags(current.contentTags));
@@ -71,7 +77,9 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
     setLocalLocationName(current.location ?? "");
     setPlacingMode(false);
     setPendingCoords(null);
-    setLocationInput("");
+    setSearchQuery("");
+    setSearchResults([]);
+    setIsSearching(false);
   }, [current.id]);
 
   useEffect(() => {
@@ -118,25 +126,24 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   };
 
   const openPlacingMode = () => {
-    setPendingCoords(localCoords);
-    setLocationInput(localLocationName);
+    setPendingCoords(null);
+    setSearchQuery("");
+    setSearchResults([]);
     setPlacingMode(true);
   };
 
-  const saveLocation = async () => {
+  const confirmManualTap = async () => {
     if (!pendingCoords || isSavingLocation) return;
     setIsSavingLocation(true);
-    const name = locationInput.trim() || null;
     try {
       await apiRequest("PUT", `/api/photos/${current.id}/location`, {
         coordinates: pendingCoords,
-        location: name,
+        location: null,
       });
       setLocalCoords(pendingCoords);
-      setLocalLocationName(name ?? "");
+      setLocalLocationName("");
       setPlacingMode(false);
       setPendingCoords(null);
-      setLocationInput("");
       queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
     } catch {
@@ -158,11 +165,52 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
       setLocalLocationName("");
       setPlacingMode(false);
       setPendingCoords(null);
-      setLocationInput("");
       queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
     } catch {
       //
+    } finally {
+      setIsSavingLocation(false);
+    }
+  };
+
+  const runSearch = async (q: string) => {
+    setIsSearching(true);
+    try {
+      const res = await apiRequest("GET", `/api/places/search?q=${encodeURIComponent(q)}`);
+      setSearchResults(await res.json() as PlaceResult[]);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setSearchResults([]);
+    clearTimeout(searchDebounceRef.current);
+    if (value.trim().length >= 2) {
+      searchDebounceRef.current = setTimeout(() => runSearch(value.trim()), 400);
+    }
+  };
+
+  const selectResult = async (result: PlaceResult) => {
+    setSearchResults([]);
+    setSearchQuery("");
+    setIsSavingLocation(true);
+    try {
+      await apiRequest("PUT", `/api/photos/${current.id}/location`, {
+        coordinates: { lat: result.lat, lng: result.lng },
+        location: result.name,
+      });
+      setLocalCoords({ lat: result.lat, lng: result.lng });
+      setLocalLocationName(result.name);
+      setPlacingMode(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+    } catch {
+      // keep placing mode open for retry
     } finally {
       setIsSavingLocation(false);
     }
@@ -181,7 +229,13 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (placingModeRef.current) { setPlacingMode(false); setPendingCoords(null); return; }
+        if (placingModeRef.current) {
+          setPlacingMode(false);
+          setPendingCoords(null);
+          setSearchQuery("");
+          setSearchResults([]);
+          return;
+        }
         onClose();
         return;
       }
@@ -397,8 +451,42 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
 
                 {placingMode && (
                   <div className="space-y-2">
-                    <p className="text-neutral-500 text-xs">Tap the map to place this memory.</p>
-                    <div className="rounded overflow-hidden" style={{ height: "140px" }}>
+                    {/* Search input */}
+                    <div className="relative">
+                      <input
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") { e.preventDefault(); setSearchQuery(""); setSearchResults([]); }
+                        }}
+                        placeholder="Search for a place…"
+                        className="w-full px-2 py-1 bg-neutral-800 text-neutral-200 text-xs rounded outline-none placeholder:text-neutral-600 border border-neutral-700 focus:border-neutral-500"
+                      />
+                      {isSearching && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 text-xs">…</span>
+                      )}
+                    </div>
+
+                    {/* Search results */}
+                    {searchResults.length > 0 && (
+                      <div className="rounded border border-neutral-700 bg-neutral-800 overflow-hidden">
+                        <p className="px-2 pt-1.5 pb-0.5 text-neutral-500 text-xs">Choose a place</p>
+                        {searchResults.map((r, i) => (
+                          <button
+                            key={i}
+                            onClick={() => selectResult(r)}
+                            disabled={isSavingLocation}
+                            className="w-full text-left px-2 py-1.5 hover:bg-neutral-700 transition-colors border-t border-neutral-700/50 disabled:opacity-40"
+                          >
+                            <span className="text-neutral-200 text-xs block truncate">{r.name}</span>
+                            {r.country && <span className="text-neutral-500 text-xs">{r.country}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Map */}
+                    <div className="rounded overflow-hidden" style={{ height: "180px" }}>
                       <MapContainer
                         center={mapInitCenter}
                         zoom={mapInitZoom}
@@ -416,31 +504,24 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
                         )}
                       </MapContainer>
                     </div>
-                    <input
-                      value={locationInput}
-                      onChange={(e) => setLocationInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); saveLocation(); }
-                        if (e.key === "Escape") { e.preventDefault(); setPlacingMode(false); setPendingCoords(null); }
-                      }}
-                      placeholder="Place name (optional)"
-                      className="w-full px-2 py-1 bg-neutral-800 text-neutral-200 text-xs rounded outline-none placeholder:text-neutral-600 border border-neutral-700 focus:border-neutral-500"
-                    />
-                    <div className="flex gap-2">
+                    <p className="text-neutral-600 text-xs">or tap anywhere to place approximately</p>
+
+                    {pendingCoords && (
                       <button
-                        onClick={saveLocation}
-                        disabled={!pendingCoords || isSavingLocation}
-                        className="flex-1 px-2 py-1 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+                        onClick={confirmManualTap}
+                        disabled={isSavingLocation}
+                        className="w-full px-2 py-1 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
                       >
-                        {isSavingLocation ? "Saving…" : "Save"}
+                        {isSavingLocation ? "Saving…" : "Confirm approximate place"}
                       </button>
-                      <button
-                        onClick={() => { setPlacingMode(false); setPendingCoords(null); }}
-                        className="px-2 py-1 text-neutral-400 hover:text-white text-xs transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    )}
+
+                    <button
+                      onClick={() => { setPlacingMode(false); setPendingCoords(null); setSearchQuery(""); setSearchResults([]); }}
+                      className="w-full px-2 py-1 text-neutral-400 hover:text-white text-xs transition-colors"
+                    >
+                      Cancel
+                    </button>
                     {localCoords && (
                       <button
                         onClick={removeLocation}

@@ -261,6 +261,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Place search — proxies to Nominatim (OpenStreetMap); routes queries through the server so the
+  // client IP is not sent directly to the external service, though queries do reach Nominatim.
+  app.get("/api/places/search", async (req: Request, res: Response) => {
+    const q = ((req.query.q as string) ?? "").trim();
+    if (q.length < 2) return res.json([]);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1&accept-language=en`;
+      const r = await fetch(url, {
+        headers: { "User-Agent": "Trace/1.0 memory-reconstruction-app" },
+      });
+      if (!r.ok) return res.json([]);
+      const raw: any[] = await r.json();
+      res.json(raw.map(item => ({
+        name: (item.display_name as string).split(",")[0].trim(),
+        country: (item.address?.country as string) ?? "",
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+      })));
+    } catch {
+      res.json([]);
+    }
+  });
+
   // Get all photos with pagination
   app.get("/api/photos", async (req: Request, res: Response) => {
     try {
