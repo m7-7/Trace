@@ -261,6 +261,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Recent places — derived from existing photo location data, no external calls
+  app.get("/api/places/recent", async (req: Request, res: Response) => {
+    try {
+      res.json(await storage.getRecentPlaces());
+    } catch {
+      res.json([]);
+    }
+  });
+
   // Place search — proxies to Nominatim (OpenStreetMap); routes queries through the server so the
   // client IP is not sent directly to the external service, though queries do reach Nominatim.
   app.get("/api/places/search", async (req: Request, res: Response) => {

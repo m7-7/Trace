@@ -20,6 +20,8 @@ import {
   type InsertJournalEntry,
 } from "@shared/schema";
 
+export type RecentPlace = { name: string; lat: number; lng: number };
+
 // Storage interface for CRUD operations
 export interface IStorage {
   // User operations (keeping the original methods)
@@ -48,6 +50,7 @@ export interface IStorage {
   getExistingFilePaths(paths: string[]): Promise<Set<string>>;
   getPlacedPhotos(): Promise<Photo[]>;
   getUnplacedPhotos(): Promise<Photo[]>;
+  getRecentPlaces(): Promise<RecentPlace[]>;
 
   // Folder operations
   getFolders(): Promise<Folder[]>;
@@ -244,6 +247,26 @@ export class MemStorage implements IStorage {
 
   async getUnplacedPhotos(): Promise<Photo[]> {
     return Array.from(this.photos.values()).filter(p => p.coordinates == null);
+  }
+
+  async getRecentPlaces(): Promise<RecentPlace[]> {
+    const nameMap = new Map<string, { lat: number; lng: number; count: number; lastUsed: number }>();
+    for (const photo of Array.from(this.photos.values())) {
+      if (!photo.location || !photo.coordinates) continue;
+      const coords = photo.coordinates as { lat: number; lng: number };
+      const ts = new Date(photo.createdAt).getTime();
+      const existing = nameMap.get(photo.location);
+      if (!existing) {
+        nameMap.set(photo.location, { lat: coords.lat, lng: coords.lng, count: 1, lastUsed: ts });
+      } else {
+        existing.count++;
+        if (ts > existing.lastUsed) { existing.lat = coords.lat; existing.lng = coords.lng; existing.lastUsed = ts; }
+      }
+    }
+    return Array.from(nameMap.entries())
+      .sort((a, b) => b[1].count - a[1].count || b[1].lastUsed - a[1].lastUsed)
+      .slice(0, 8)
+      .map(([name, { lat, lng }]) => ({ name, lat, lng }));
   }
 
   async toggleFavorite(id: number): Promise<Photo | undefined> {

@@ -13,6 +13,7 @@ import { Photo } from "@shared/schema";
 import { format } from "date-fns";
 
 type PlaceResult = { name: string; country: string; lat: number; lng: number };
+type RecentPlace = { name: string; lat: number; lng: number };
 
 interface CreateAlbumModalProps {
   onClose: () => void;
@@ -35,6 +36,11 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
   const [isSearchingPlace, setIsSearchingPlace] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
   const placeDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const { data: recentPlaces = [] } = useQuery<RecentPlace[]>({
+    queryKey: ["/api/places/recent"],
+    enabled: addPlaceEnabled,
+    staleTime: 30_000,
+  });
   const [, navigate] = useLocation();
 
   const { data: allPhotos = [], isLoading: photosLoading } = useQuery<Photo[]>({
@@ -160,6 +166,7 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
           );
           queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
           queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/places/recent"] });
         } catch {
           placeWarning = true;
         }
@@ -325,6 +332,23 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
                 </div>
                 {addPlaceEnabled && (
                   <div className="space-y-1.5">
+                    {recentPlaces.length > 0 && (
+                      <div>
+                        <p className="text-xs text-neutral-500 mb-1">Recent places</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {recentPlaces.map((r) => (
+                            <button
+                              key={r.name}
+                              type="button"
+                              onClick={() => selectPlace({ name: r.name, country: "", lat: r.lat, lng: r.lng })}
+                              className="px-2.5 py-0.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs rounded-full border border-neutral-200 transition-colors truncate max-w-[160px]"
+                            >
+                              {r.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="relative">
                       <input
                         value={placeQuery}

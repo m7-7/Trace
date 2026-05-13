@@ -21,7 +21,7 @@ import {
   type InsertJournalEntry
 } from "@shared/schema";
 import { eq, and, between, like, or, desc, sql, inArray, isNull, isNotNull, count } from "drizzle-orm";
-import { IStorage } from "./storage";
+import { IStorage, RecentPlace } from "./storage";
 
 export class DatabaseStorage implements IStorage {
   // User operations
@@ -191,6 +191,30 @@ export class DatabaseStorage implements IStorage {
       .from(photos)
       .where(isNull(photos.coordinates))
       .orderBy(desc(photos.createdAt));
+  }
+
+  async getRecentPlaces(): Promise<RecentPlace[]> {
+    const rows = await db
+      .select({ location: photos.location, coordinates: photos.coordinates, createdAt: photos.createdAt })
+      .from(photos)
+      .where(and(isNotNull(photos.location), isNotNull(photos.coordinates)))
+      .orderBy(desc(photos.createdAt));
+    // Group by name; first occurrence per name is already the most recent (ORDER BY createdAt DESC)
+    const nameMap = new Map<string, { lat: number; lng: number; count: number }>();
+    for (const row of rows) {
+      if (!row.location || !row.coordinates) continue;
+      const coords = row.coordinates as { lat: number; lng: number };
+      const existing = nameMap.get(row.location);
+      if (!existing) {
+        nameMap.set(row.location, { lat: coords.lat, lng: coords.lng, count: 1 });
+      } else {
+        existing.count++;
+      }
+    }
+    return Array.from(nameMap.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 8)
+      .map(([name, { lat, lng }]) => ({ name, lat, lng }));
   }
 
   // Folder operations

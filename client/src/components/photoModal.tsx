@@ -1,5 +1,6 @@
 import { Photo } from "@shared/schema";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag, RotateCw, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => voi
 }
 
 type PlaceResult = { name: string; country: string; lat: number; lng: number };
+type RecentPlace = { name: string; lat: number; lng: number };
 
 interface PhotoModalProps {
   photo: Photo;
@@ -67,6 +69,12 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const { data: recentPlaces = [] } = useQuery<RecentPlace[]>({
+    queryKey: ["/api/places/recent"],
+    enabled: placingMode,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     setLocalTags(filterTags(current.contentTags));
@@ -146,6 +154,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
       setPendingCoords(null);
       queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/places/recent"] });
     } catch {
       // keep state, let user retry
     } finally {
@@ -209,6 +218,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
       setPlacingMode(false);
       queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/places/recent"] });
     } catch {
       // keep placing mode open for retry
     } finally {
@@ -451,6 +461,25 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
 
                 {placingMode && (
                   <div className="space-y-2">
+                    {/* Recent places */}
+                    {recentPlaces.length > 0 && (
+                      <div>
+                        <p className="text-neutral-500 text-xs mb-1">Recent places</p>
+                        <div className="flex flex-wrap gap-1">
+                          {recentPlaces.map((r) => (
+                            <button
+                              key={r.name}
+                              onClick={() => selectResult({ name: r.name, country: "", lat: r.lat, lng: r.lng })}
+                              disabled={isSavingLocation}
+                              className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs rounded-full border border-neutral-700 transition-colors disabled:opacity-40 truncate max-w-[120px]"
+                            >
+                              {r.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Search input */}
                     <div className="relative">
                       <input
