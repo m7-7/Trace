@@ -12,6 +12,8 @@ import { useLocation } from "wouter";
 import { Photo } from "@shared/schema";
 import { format } from "date-fns";
 
+type PlaceResult = { name: string; country: string; lat: number; lng: number };
+
 interface CreateAlbumModalProps {
   onClose: () => void;
   initialTerms?: string[];
@@ -27,6 +29,12 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
   const [pendingTags, setPendingTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const [addPlaceEnabled, setAddPlaceEnabled] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [isSearchingPlace, setIsSearchingPlace] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
+  const placeDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [, navigate] = useLocation();
 
   const { data: allPhotos = [], isLoading: photosLoading } = useQuery<Photo[]>({
@@ -76,6 +84,34 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
 
   const removeTag = (tag: string) => setPendingTags(prev => prev.filter(t => t !== tag));
 
+  const runPlaceSearch = async (q: string) => {
+    setIsSearchingPlace(true);
+    try {
+      const res = await apiRequest("GET", `/api/places/search?q=${encodeURIComponent(q)}`);
+      setPlaceResults(await res.json() as PlaceResult[]);
+    } catch {
+      setPlaceResults([]);
+    } finally {
+      setIsSearchingPlace(false);
+    }
+  };
+
+  const handlePlaceQueryChange = (value: string) => {
+    setPlaceQuery(value);
+    setPlaceResults([]);
+    setSelectedPlace(null);
+    clearTimeout(placeDebounceRef.current);
+    if (value.trim().length >= 2) {
+      placeDebounceRef.current = setTimeout(() => runPlaceSearch(value.trim()), 400);
+    }
+  };
+
+  const selectPlace = (result: PlaceResult) => {
+    setSelectedPlace(result);
+    setPlaceQuery(result.name);
+    setPlaceResults([]);
+  };
+
   const handleCreate = async () => {
     if (selectedIds.size === 0) {
       toast({ title: "No photos selected", description: "Pick at least one photo", variant: "destructive" });
@@ -111,7 +147,29 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
         }
       }
 
-      toast({ title: "Memory created", description: `"${albumName}" has been created with ${selectedIds.size} photo${selectedIds.size === 1 ? "" : "s"}` });
+      let placeWarning = false;
+      if (addPlaceEnabled && selectedPlace) {
+        try {
+          await Promise.all(
+            Array.from(selectedIds).map(photoId =>
+              apiRequest("PUT", `/api/photos/${photoId}/location`, {
+                coordinates: { lat: selectedPlace.lat, lng: selectedPlace.lng },
+                location: selectedPlace.name,
+              })
+            )
+          );
+          queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+        } catch {
+          placeWarning = true;
+        }
+      }
+
+      if (placeWarning) {
+        toast({ title: "Memory created", description: "The place couldn't be added to all photos." });
+      } else {
+        toast({ title: "Memory created", description: `"${albumName}" has been created with ${selectedIds.size} photo${selectedIds.size === 1 ? "" : "s"}` });
+      }
       navigate(`/albums/${album.id}`);
       onClose();
     } catch {
@@ -209,7 +267,7 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
               )}
             </div>
 
-            {/* Optional batch tagging */}
+            {/* Optional batch tagging + place */}
             {selectedIds.size > 0 && (
               <div className="border-t border-neutral-100 pt-3 space-y-2 shrink-0">
                 <div className="flex items-center gap-2">
@@ -248,6 +306,62 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
                     </div>
                     {pendingTags.length === 0 && (
                       <p className="text-xs text-neutral-400 italic">No tags added — photos will stay untagged.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="add-place"
+                    checked={addPlaceEnabled}
+                    onCheckedChange={(v) => {
+                      setAddPlaceEnabled(!!v);
+                      if (!v) { setPlaceQuery(""); setPlaceResults([]); setSelectedPlace(null); }
+                    }}
+                  />
+                  <Label htmlFor="add-place" className="text-sm cursor-pointer text-neutral-600">
+                    Add a place to this memory
+                  </Label>
+                </div>
+                {addPlaceEnabled && (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <input
+                        value={placeQuery}
+                        onChange={e => handlePlaceQueryChange(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Escape") { setPlaceQuery(""); setPlaceResults([]); setSelectedPlace(null); }
+                        }}
+                        placeholder="Search for a place…"
+                        className="w-full px-3 py-1.5 bg-neutral-100 text-neutral-800 text-sm rounded-md outline-none placeholder:text-neutral-400 border border-neutral-200 focus:border-neutral-400"
+                      />
+                      {isSearchingPlace && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs">…</span>
+                      )}
+                    </div>
+                    {placeResults.length > 0 && (
+                      <div className="rounded-md border border-neutral-200 bg-white overflow-hidden shadow-sm">
+                        {placeResults.map((r, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => selectPlace(r)}
+                            className="w-full text-left px-3 py-2 hover:bg-neutral-50 transition-colors border-t border-neutral-100 first:border-t-0"
+                          >
+                            <span className="text-neutral-800 text-sm block truncate">{r.name}</span>
+                            {r.country && <span className="text-neutral-400 text-xs">{r.country}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {selectedPlace ? (
+                      <p className="text-xs text-neutral-500">
+                        <span className="text-neutral-700 font-medium">{selectedPlace.name}</span>
+                        {selectedPlace.country ? `, ${selectedPlace.country}` : ""}{" "}
+                        will be added to {selectedIds.size} photo{selectedIds.size === 1 ? "" : "s"}.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-neutral-400 italic">No place selected yet.</p>
                     )}
                   </div>
                 )}
