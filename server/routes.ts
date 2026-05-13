@@ -250,11 +250,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Travel page data — must be registered before /api/photos/:id to avoid catch-all match
   app.get("/api/travel", async (req: Request, res: Response) => {
     try {
-      const [placed, unplacedCount] = await Promise.all([
+      const [placed, unplaced] = await Promise.all([
         storage.getPlacedPhotos(),
-        storage.getUnplacedPhotoCount(),
+        storage.getUnplacedPhotos(),
       ]);
-      res.json({ placed, unplacedCount });
+      res.json({ placed, unplaced });
     } catch (error) {
       console.error("Error fetching travel data:", error);
       res.status(500).json({ message: "Failed to fetch travel data" });

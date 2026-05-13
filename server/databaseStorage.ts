@@ -185,12 +185,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(photos.createdAt));
   }
 
-  async getUnplacedPhotoCount(): Promise<number> {
-    const [row] = await db
-      .select({ value: count() })
+  async getUnplacedPhotos(): Promise<Photo[]> {
+    return await db
+      .select()
       .from(photos)
-      .where(isNull(photos.coordinates));
-    return row?.value ?? 0;
+      .where(isNull(photos.coordinates))
+      .orderBy(desc(photos.createdAt));
   }
 
   // Folder operations

@@ -47,7 +47,7 @@ export interface IStorage {
   deletePhoto(id: number): Promise<boolean>;
   getExistingFilePaths(paths: string[]): Promise<Set<string>>;
   getPlacedPhotos(): Promise<Photo[]>;
-  getUnplacedPhotoCount(): Promise<number>;
+  getUnplacedPhotos(): Promise<Photo[]>;
 
   // Folder operations
   getFolders(): Promise<Folder[]>;
@@ -242,8 +242,8 @@ export class MemStorage implements IStorage {
     return Array.from(this.photos.values()).filter(p => p.coordinates != null);
   }
 
-  async getUnplacedPhotoCount(): Promise<number> {
-    return Array.from(this.photos.values()).filter(p => p.coordinates == null).length;
+  async getUnplacedPhotos(): Promise<Photo[]> {
+    return Array.from(this.photos.values()).filter(p => p.coordinates == null);
   }
 
   async toggleFavorite(id: number): Promise<Photo | undefined> {

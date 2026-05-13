@@ -5,11 +5,11 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "@/lib/leafletConfig";
 import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
-
+import { PhotoCard } from "@/components/photoCard";
 
 interface TravelData {
   placed: Photo[];
-  unplacedCount: number;
+  unplaced: Photo[];
 }
 
 interface Cluster {
@@ -64,7 +64,8 @@ export default function TravelYourWorld() {
   });
 
   const placed = data?.placed ?? [];
-  const unplacedCount = data?.unplacedCount ?? 0;
+  const unplaced = data?.unplaced ?? [];
+  const unplacedCount = unplaced.length;
   const clusters = clusterPhotos(placed);
 
   const totalPhotos = placed.length;
@@ -189,14 +190,22 @@ export default function TravelYourWorld() {
             </div>
           )}
 
-          {/* Unplaced photos notice */}
+          {/* Memories without a place yet */}
           {!isLoading && unplacedCount > 0 && (
-            <div className="mt-6 p-4 rounded-lg border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-              <div className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                {unplacedCount} unplaced {unplacedCount === 1 ? "photo" : "photos"}
+            <div className="mt-6">
+              <div className="flex items-baseline gap-2 mb-3">
+                <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+                  Memories without a place yet
+                </h2>
+                <span className="text-sm text-neutral-400 dark:text-neutral-500">{unplacedCount}</span>
               </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                These photos don't have location data. Manual placement will be available in a future update.
+              <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-3">
+                Open a photo to add a place.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {unplaced.map(photo => (
+                  <PhotoCard key={photo.id} photo={photo} allPhotos={unplaced} />
+                ))}
               </div>
             </div>
           )}
