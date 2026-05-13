@@ -50,6 +50,7 @@ export interface IStorage {
   getExistingFilePaths(paths: string[]): Promise<Set<string>>;
   getPlacedPhotos(): Promise<Photo[]>;
   getUnplacedPhotos(): Promise<Photo[]>;
+  getPhotosByFolder(folderId: number): Promise<Photo[]>;
   getRecentPlaces(): Promise<RecentPlace[]>;
 
   // Folder operations
@@ -247,6 +248,15 @@ export class MemStorage implements IStorage {
 
   async getUnplacedPhotos(): Promise<Photo[]> {
     return Array.from(this.photos.values()).filter(p => p.coordinates == null);
+  }
+
+  async getPhotosByFolder(folderId: number): Promise<Photo[]> {
+    const folder = this.folders.get(folderId);
+    if (!folder) return [];
+    const prefix = folder.path.endsWith('/') ? folder.path : folder.path + '/';
+    return Array.from(this.photos.values())
+      .filter(p => p.filePath.startsWith(prefix))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getRecentPlaces(): Promise<RecentPlace[]> {

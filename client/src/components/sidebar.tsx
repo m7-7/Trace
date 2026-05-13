@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Folder } from "@shared/schema";
 import { useState } from "react";
@@ -11,22 +11,41 @@ import { useModal, ModalType } from "@/lib/modalContext";
 
 const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
 
+const FOLDER_LIMIT = 5;
+
 export function Sidebar() {
   const [location] = useLocation();
+  const searchString = useSearch();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [newFolderPath, setNewFolderPath] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
+  const [showAllFolders, setShowAllFolders] = useState(false);
   const { openModal } = useModal();
-  
+
   // Get folders from API
   const { data: folders = [] } = useQuery<Folder[]>({
     queryKey: ['/api/folders'],
   });
-  
+
+  // useLocation() returns pathname only in wouter v3; useSearch() provides the query string
+  const currentFolderId = new URLSearchParams(searchString).get('folder');
+
   const isActive = (path: string) => {
+    if (path === '/' && currentFolderId) return false;
     return location === path;
   };
+
+  const sortedFolders = [...folders].sort((a, b) => a.name.localeCompare(b.name));
+  const activeFolderIndex = currentFolderId
+    ? sortedFolders.findIndex(f => f.id.toString() === currentFolderId)
+    : -1;
+  const visibleFolders = showAllFolders
+    ? sortedFolders
+    : activeFolderIndex >= FOLDER_LIMIT
+      ? [...sortedFolders.slice(0, FOLDER_LIMIT), sortedFolders[activeFolderIndex]]
+      : sortedFolders.slice(0, FOLDER_LIMIT);
+  const hiddenCount = sortedFolders.length - FOLDER_LIMIT;
   
   const toggleMobileMenu = () => {
     setIsMobileOpen(!isMobileOpen);
@@ -272,10 +291,10 @@ export function Sidebar() {
             <div className="mb-4">
               <h2 className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider px-3 mb-2">Folders</h2>
               <ul>
-                {folders.map(folder => (
+                {visibleFolders.map(folder => (
                   <li key={folder.id}>
                     <Link href={`/?folder=${folder.id}`}>
-                      <div className="sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200 cursor-pointer">
+                      <div className={`sidebar-link flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${currentFolderId === folder.id.toString() ? "bg-primary-50 dark:bg-primary-900/40 text-primary-500 dark:text-primary-400 border-r-3 border-primary-500" : "hover:bg-neutral-50 dark:hover:bg-gray-800 dark:text-neutral-200"}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="text-[20px] mr-3 w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                         </svg>
@@ -291,6 +310,16 @@ export function Sidebar() {
                     </Link>
                   </li>
                 ))}
+                {hiddenCount > 0 && (
+                  <li>
+                    <button
+                      onClick={() => setShowAllFolders(v => !v)}
+                      className="flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-800 w-full text-left"
+                    >
+                      {showAllFolders ? "Show less" : `${hiddenCount} more folder${hiddenCount === 1 ? "" : "s"}`}
+                    </button>
+                  </li>
+                )}
                 <li>
                   <button 
                     onClick={() => setAddFolderOpen(true)}

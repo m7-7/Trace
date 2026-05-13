@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PhotoCard } from "./photoCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ interface PhotoGalleryProps {
   searchQuery?: string;
   category?: string;
   albumId?: number;
+  folderId?: number;
+  folderName?: string;
   favoritesOnly?: boolean;
 }
 
@@ -17,51 +19,57 @@ export function PhotoGallery({
   searchQuery,
   category,
   albumId,
+  folderId,
+  folderName,
   favoritesOnly = false
 }: PhotoGalleryProps) {
   const [limit, setLimit] = useState(24);
   const [timeFilter, setTimeFilter] = useState("all");
-  
+
+  const dateRange = useMemo(() => {
+    if (timeFilter === 'all') return null;
+    const now = new Date();
+    const startDate = new Date();
+    switch (timeFilter) {
+      case 'year': startDate.setFullYear(now.getFullYear() - 1); break;
+      case 'month': startDate.setMonth(now.getMonth() - 1); break;
+      case 'week': startDate.setDate(now.getDate() - 7); break;
+    }
+    return { startDate: startDate.toISOString(), endDate: now.toISOString() };
+  }, [timeFilter]);
+
   // Build the query key based on filters
   let queryKey = ['/api/photos'];
   let queryParams: Record<string, string> = {};
-  
+
   if (limit) {
     queryParams.limit = limit.toString();
   }
-  
+
   if (searchQuery) {
     queryParams.q = searchQuery;
     queryKey = ['/api/photos/search'];
   }
-  
-  if (timeFilter !== 'all') {
-    const now = new Date();
-    let startDate = new Date();
-    
-    switch (timeFilter) {
-      case 'year':
-        startDate.setFullYear(now.getFullYear() - 1);
-        break;
-      case 'month':
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-      case 'week':
-        startDate.setDate(now.getDate() - 7);
-        break;
-    }
-    
-    queryParams.startDate = startDate.toISOString();
-    queryParams.endDate = now.toISOString();
+
+  if (dateRange) {
+    queryParams.startDate = dateRange.startDate;
+    queryParams.endDate = dateRange.endDate;
   }
-  
+
   if (category) {
     queryParams.category = category;
   }
-  
+
+  // For folder-scoped view
+  if (folderId !== undefined) {
+    queryParams = { folderId: folderId.toString() };
+    queryKey = ['/api/photos'];
+  }
+
   // For album photos, use a different endpoint
   if (albumId) {
     queryKey = [`/api/albums/${albumId}/photos`];
+    queryParams = {};
   }
   
   // For favorites, filter after fetching
@@ -86,15 +94,15 @@ export function PhotoGallery({
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-neutral-700">
-            {albumId ? "Album Photos" : favoritesOnly ? "Favorite Photos" : "All Photos"}
+            {albumId ? "Album Photos" : folderId ? (folderName ?? "Folder Photos") : favoritesOnly ? "Favorite Photos" : "All Photos"}
           </h2>
-          
+
           <div className="flex items-center space-x-2">
             <Skeleton className="h-10 w-28" />
             <Skeleton className="h-10 w-10" />
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
             <div key={i} className="rounded-lg overflow-hidden shadow-sm">
@@ -115,10 +123,10 @@ export function PhotoGallery({
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-neutral-700">
-            {albumId ? "Album Photos" : favoritesOnly ? "Favorite Photos" : "All Photos"}
+            {albumId ? "Album Photos" : folderId ? (folderName ?? "Folder Photos") : favoritesOnly ? "Favorite Photos" : "All Photos"}
           </h2>
         </div>
-        
+
         <div className="bg-white rounded-xl p-8 text-center border border-dashed border-neutral-200">
           <div className="mb-4 inline-flex items-center justify-center h-12 w-12 rounded-full bg-primary-50 text-primary-500">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -128,21 +136,25 @@ export function PhotoGallery({
             </svg>
           </div>
           <h3 className="text-lg font-medium text-neutral-700 mb-1">
-            {favoritesOnly 
+            {favoritesOnly
               ? "No Favorite Photos Yet"
-              : searchQuery 
+              : searchQuery
                 ? "No Photos Match Your Search"
                 : albumId
                   ? "No Photos in This Album"
-                  : "No Photos Found"
+                  : folderId
+                    ? "No Photos in This Folder"
+                    : "No Photos Found"
             }
           </h3>
           <p className="text-neutral-500 mb-4">
-            {favoritesOnly 
+            {favoritesOnly
               ? "Mark some photos as favorites"
-              : searchQuery 
+              : searchQuery
                 ? "Try different search terms"
-                : "Add a folder to scan for photos"
+                : folderId
+                  ? "This folder may still be scanning, or contains no supported images"
+                  : "Add a folder to scan for photos"
             }
           </p>
         </div>
@@ -154,11 +166,11 @@ export function PhotoGallery({
     <section>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-neutral-700">
-          {albumId ? "Album Photos" : favoritesOnly ? "Favorite Photos" : "All Photos"}
+          {albumId ? "Album Photos" : folderId ? (folderName ?? "Folder Photos") : favoritesOnly ? "Favorite Photos" : "All Photos"}
         </h2>
         
-        {/* Filter Controls */}
-        <div className="flex items-center space-x-2">
+        {/* Filter Controls — hidden in folder-scoped view */}
+        {!folderId && <div className="flex items-center space-x-2">
           <Select value={timeFilter} onValueChange={setTimeFilter}>
             <SelectTrigger className="w-[140px] h-9">
               <SelectValue placeholder="All Time" />
@@ -170,7 +182,7 @@ export function PhotoGallery({
               <SelectItem value="week">This Week</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <button className="p-1.5 rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50" title="View options">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7"></rect>
@@ -179,9 +191,9 @@ export function PhotoGallery({
               <rect x="3" y="14" width="7" height="7"></rect>
             </svg>
           </button>
-        </div>
+        </div>}
       </div>
-      
+
       {/* Photo Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filteredPhotos.map(photo => (

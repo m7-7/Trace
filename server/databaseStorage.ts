@@ -193,6 +193,17 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(photos.createdAt));
   }
 
+  async getPhotosByFolder(folderId: number): Promise<Photo[]> {
+    const folder = await this.getFolderById(folderId);
+    if (!folder) return [];
+    const prefix = (folder.path.endsWith('/') ? folder.path : folder.path + '/') + '%';
+    return await db
+      .select()
+      .from(photos)
+      .where(sql`${photos.filePath} LIKE ${prefix}`)
+      .orderBy(desc(photos.createdAt));
+  }
+
   async getRecentPlaces(): Promise<RecentPlace[]> {
     const rows = await db
       .select({ location: photos.location, coordinates: photos.coordinates, createdAt: photos.createdAt })

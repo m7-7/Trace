@@ -296,9 +296,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all photos with pagination
   app.get("/api/photos", async (req: Request, res: Response) => {
     try {
+      if (req.query.folderId) {
+        const folderId = parseInt(req.query.folderId as string);
+        if (isNaN(folderId)) return res.status(400).json({ message: "Invalid folderId" });
+        const photos = await storage.getPhotosByFolder(folderId);
+        return res.json(photos);
+      }
       const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
       const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
-
       const photos = await storage.getPhotos(limit, offset);
       res.json(photos);
     } catch (error) {
