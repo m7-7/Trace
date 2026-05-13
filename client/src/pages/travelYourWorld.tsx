@@ -2,20 +2,10 @@ import { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import "@/lib/leafletConfig";
 import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
 
 interface TravelData {
   placed: Photo[];
@@ -216,7 +206,7 @@ export default function TravelYourWorld() {
             <div className="mt-6 rounded-lg border border-dashed border-neutral-200 dark:border-gray-700 p-10 text-center">
               <div className="text-neutral-400 dark:text-neutral-500 text-sm mb-1">No location data yet</div>
               <div className="text-neutral-400 dark:text-neutral-500 text-xs">
-                Photos with GPS coordinates will appear here automatically.
+                Open any photo and tap "Place on map" to add it here.
               </div>
             </div>
           )}

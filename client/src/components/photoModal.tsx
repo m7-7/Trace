@@ -1,9 +1,32 @@
 import { Photo } from "@shared/schema";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
-import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag, RotateCw } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag, RotateCw, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
+import "@/lib/leafletConfig";
+
+type Coords = { lat: number; lng: number };
+
+function MapResizeFix() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
+
+function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  const map = useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+      map.flyTo(e.latlng, Math.max(map.getZoom(), 6), { duration: 0.5 });
+    },
+  });
+  return null;
+}
 
 interface PhotoModalProps {
   photo: Photo;
@@ -30,11 +53,25 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
 
   const [localRotation, setLocalRotation] = useState<number>(current.rotation ?? 0);
 
+  const [localCoords, setLocalCoords] = useState<Coords | null>(current.coordinates as Coords | null);
+  const [localLocationName, setLocalLocationName] = useState<string>(current.location ?? "");
+  const [placingMode, setPlacingMode] = useState(false);
+  const [pendingCoords, setPendingCoords] = useState<Coords | null>(null);
+  const [locationInput, setLocationInput] = useState("");
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+  const placingModeRef = useRef(false);
+  placingModeRef.current = placingMode;
+
   useEffect(() => {
     setLocalTags(filterTags(current.contentTags));
     setLocalRotation(current.rotation ?? 0);
     setAddingTag(false);
     setTagInput("");
+    setLocalCoords(current.coordinates as Coords | null);
+    setLocalLocationName(current.location ?? "");
+    setPlacingMode(false);
+    setPendingCoords(null);
+    setLocationInput("");
   }, [current.id]);
 
   useEffect(() => {
@@ -80,6 +117,57 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
     }
   };
 
+  const openPlacingMode = () => {
+    setPendingCoords(localCoords);
+    setLocationInput(localLocationName);
+    setPlacingMode(true);
+  };
+
+  const saveLocation = async () => {
+    if (!pendingCoords || isSavingLocation) return;
+    setIsSavingLocation(true);
+    const name = locationInput.trim() || null;
+    try {
+      await apiRequest("PUT", `/api/photos/${current.id}/location`, {
+        coordinates: pendingCoords,
+        location: name,
+      });
+      setLocalCoords(pendingCoords);
+      setLocalLocationName(name ?? "");
+      setPlacingMode(false);
+      setPendingCoords(null);
+      setLocationInput("");
+      queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+    } catch {
+      // keep state, let user retry
+    } finally {
+      setIsSavingLocation(false);
+    }
+  };
+
+  const removeLocation = async () => {
+    if (isSavingLocation) return;
+    setIsSavingLocation(true);
+    try {
+      await apiRequest("PUT", `/api/photos/${current.id}/location`, {
+        coordinates: null,
+        location: null,
+      });
+      setLocalCoords(null);
+      setLocalLocationName("");
+      setPlacingMode(false);
+      setPendingCoords(null);
+      setLocationInput("");
+      queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+    } catch {
+      //
+    } finally {
+      setIsSavingLocation(false);
+    }
+  };
+
   useEffect(() => {
     if (prevIndexRef.current !== currentIndex) {
       setImageLoaded(false);
@@ -92,7 +180,11 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (placingModeRef.current) { setPlacingMode(false); setPendingCoords(null); return; }
+        onClose();
+        return;
+      }
       if (e.key === "ArrowRight") goNext();
       if (e.key === "ArrowLeft") goPrev();
     };
@@ -116,6 +208,9 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
       : `${(current.fileSize / 1024).toFixed(0)} KB`
     : null;
 
+
+  const mapInitCenter: [number, number] = localCoords ? [localCoords.lat, localCoords.lng] : [20, 0];
+  const mapInitZoom = localCoords ? 5 : 2;
 
   return (
     <div
@@ -269,16 +364,96 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
               </div>
             </div>
 
-            {/* Location */}
-            {current.location && (
-              <div className="flex items-start gap-2.5">
-                <div className="h-4 w-4 text-neutral-500 mt-0.5 shrink-0 text-center text-xs">📍</div>
-                <div>
-                  <p className="text-neutral-400 text-xs mb-0.5">Location</p>
-                  <p className="text-white">{current.location}</p>
+            {/* Place Memory */}
+            <div className="flex items-start gap-2.5">
+              <MapPin className="h-4 w-4 text-neutral-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-neutral-400 text-xs">Place</p>
+                  {!placingMode && (
+                    <button
+                      onClick={openPlacingMode}
+                      className="text-xs text-neutral-400 hover:text-white transition-colors"
+                    >
+                      {localCoords ? "Edit" : "+ Place on map"}
+                    </button>
+                  )}
                 </div>
+
+                {!placingMode && (
+                  localCoords ? (
+                    <p className="text-white text-xs">
+                      {localLocationName || `${localCoords.lat.toFixed(2)}°, ${localCoords.lng.toFixed(2)}°`}
+                    </p>
+                  ) : (
+                    <button
+                      onClick={openPlacingMode}
+                      className="text-neutral-600 hover:text-neutral-400 text-xs italic transition-colors"
+                    >
+                      Not placed yet
+                    </button>
+                  )
+                )}
+
+                {placingMode && (
+                  <div className="space-y-2">
+                    <p className="text-neutral-500 text-xs">Tap the map to place this memory.</p>
+                    <div className="rounded overflow-hidden" style={{ height: "140px" }}>
+                      <MapContainer
+                        center={mapInitCenter}
+                        zoom={mapInitZoom}
+                        scrollWheelZoom={true}
+                        style={{ height: "100%", width: "100%" }}
+                      >
+                        <MapResizeFix />
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <MapClickHandler onPick={(lat, lng) => setPendingCoords({ lat, lng })} />
+                        {pendingCoords && (
+                          <Marker position={[pendingCoords.lat, pendingCoords.lng]} />
+                        )}
+                      </MapContainer>
+                    </div>
+                    <input
+                      value={locationInput}
+                      onChange={(e) => setLocationInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); saveLocation(); }
+                        if (e.key === "Escape") { e.preventDefault(); setPlacingMode(false); setPendingCoords(null); }
+                      }}
+                      placeholder="Place name (optional)"
+                      className="w-full px-2 py-1 bg-neutral-800 text-neutral-200 text-xs rounded outline-none placeholder:text-neutral-600 border border-neutral-700 focus:border-neutral-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveLocation}
+                        disabled={!pendingCoords || isSavingLocation}
+                        className="flex-1 px-2 py-1 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded transition-colors"
+                      >
+                        {isSavingLocation ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => { setPlacingMode(false); setPendingCoords(null); }}
+                        className="px-2 py-1 text-neutral-400 hover:text-white text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {localCoords && (
+                      <button
+                        onClick={removeLocation}
+                        disabled={isSavingLocation}
+                        className="text-neutral-600 hover:text-red-400 text-xs transition-colors disabled:opacity-40"
+                      >
+                        Remove placement
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Description */}
