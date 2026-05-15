@@ -6,12 +6,13 @@ import "@/lib/leafletConfig";
 import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
 import { PhotoCard } from "@/components/photoCard";
-import { X, Check } from "lucide-react";
+import { X, Check, Pencil, Tag } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 
 type PlaceResult = { name: string; country: string; lat: number; lng: number };
 type RecentPlace = { name: string; lat: number; lng: number };
+type PendingPlace = { name: string; lat: number; lng: number };
 
 interface TravelData {
   placed: Photo[];
@@ -84,9 +85,23 @@ export default function TravelYourWorld() {
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const batchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  const [pendingBatchPlace, setPendingBatchPlace] = useState<PendingPlace | null>(null);
+  const [pendingClusterPlace, setPendingClusterPlace] = useState<PendingPlace | null>(null);
+
+  const [editingClusterPlace, setEditingClusterPlace] = useState(false);
+  const [clusterPlaceQuery, setClusterPlaceQuery] = useState("");
+  const [clusterPlaceResults, setClusterPlaceResults] = useState<PlaceResult[]>([]);
+  const [isClusterSearching, setIsClusterSearching] = useState(false);
+  const [isClusterSaving, setIsClusterSaving] = useState(false);
+  const clusterDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const [editingClusterLabel, setEditingClusterLabel] = useState(false);
+  const [clusterLabelInput, setClusterLabelInput] = useState("");
+  const [isSavingLabel, setIsSavingLabel] = useState(false);
+
   const { data: recentPlaces = [] } = useQuery<RecentPlace[]>({
     queryKey: ["/api/places/recent"],
-    enabled: selectMode,
+    enabled: selectMode || editingClusterPlace,
     staleTime: 30_000,
   });
 
@@ -105,6 +120,7 @@ export default function TravelYourWorld() {
     setBatchPlaceQuery("");
     setBatchPlaceResults([]);
     setIsBatchSearching(false);
+    setPendingBatchPlace(null);
   };
 
   const runBatchSearch = async (q: string) => {
@@ -151,6 +167,86 @@ export default function TravelYourWorld() {
     }
   };
 
+  const closeClusterOverlay = () => {
+    clearTimeout(clusterDebounceRef.current);
+    setSelectedCluster(null);
+    setEditingClusterPlace(false);
+    setClusterPlaceQuery("");
+    setClusterPlaceResults([]);
+    setIsClusterSearching(false);
+    setPendingClusterPlace(null);
+    setEditingClusterLabel(false);
+    setClusterLabelInput("");
+  };
+
+  const runClusterSearch = async (q: string) => {
+    setIsClusterSearching(true);
+    try {
+      const res = await apiRequest("GET", `/api/places/search?q=${encodeURIComponent(q)}`);
+      setClusterPlaceResults(await res.json() as PlaceResult[]);
+    } catch {
+      setClusterPlaceResults([]);
+    } finally {
+      setIsClusterSearching(false);
+    }
+  };
+
+  const handleClusterQueryChange = (value: string) => {
+    setClusterPlaceQuery(value);
+    setClusterPlaceResults([]);
+    clearTimeout(clusterDebounceRef.current);
+    if (value.trim().length >= 2) {
+      clusterDebounceRef.current = setTimeout(() => runClusterSearch(value.trim()), 400);
+    }
+  };
+
+  const applyClusterReplace = async (place: { name: string; lat: number; lng: number }) => {
+    if (isClusterSaving || !selectedCluster) return;
+    setIsClusterSaving(true);
+    try {
+      await Promise.all(
+        selectedCluster.photos.map(photo =>
+          apiRequest("PUT", `/api/photos/${photo.id}/location`, {
+            coordinates: { lat: place.lat, lng: place.lng },
+            location: place.name,
+          })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/places/recent"] });
+      closeClusterOverlay();
+    } catch {
+      toast({ title: "Couldn't change place", description: "Some photos may not have been updated. Please try again.", variant: "destructive" });
+    } finally {
+      setIsClusterSaving(false);
+    }
+  };
+
+  const applyClusterLabel = async (rawLabel: string) => {
+    if (isSavingLabel || !selectedCluster) return;
+    const label = rawLabel.trim() || null;
+    setIsSavingLabel(true);
+    try {
+      await Promise.all(
+        selectedCluster.photos.map(photo =>
+          apiRequest("PUT", `/api/photos/${photo.id}/location`, {
+            coordinates: photo.coordinates,
+            location: label,
+          })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/travel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/places/recent"] });
+      closeClusterOverlay();
+    } catch {
+      toast({ title: "Couldn't rename place", description: "Some photos may not have been updated. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSavingLabel(false);
+    }
+  };
+
   const totalPhotos = placed.length;
   const totalPlaces = clusters.length;
 
@@ -169,60 +265,103 @@ export default function TravelYourWorld() {
         {/* Contextual batch placement bar — outside scroll area so it stays visible */}
         {selectMode && selectedUnplaced.size > 0 && (
           <div className="shrink-0 border-b border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 md:px-6 py-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 shrink-0">
-                Place {selectedUnplaced.size} {selectedUnplaced.size === 1 ? "memory" : "memories"}
-              </p>
+            {!pendingBatchPlace ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 shrink-0">
+                  Place {selectedUnplaced.size} {selectedUnplaced.size === 1 ? "memory" : "memories"}
+                </p>
 
-              {recentPlaces.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {recentPlaces.map(r => (
-                    <button
-                      key={r.name}
-                      type="button"
-                      onClick={() => applyBatchPlace(r)}
-                      disabled={isBatchSaving}
-                      className="px-2.5 py-1 bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 text-xs rounded-full border border-neutral-200 dark:border-neutral-600 transition-colors disabled:opacity-40 truncate max-w-[140px]"
-                    >
-                      {r.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="relative flex-1 min-w-[160px]">
-                <input
-                  value={batchPlaceQuery}
-                  onChange={e => handleBatchQueryChange(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Escape") { setBatchPlaceQuery(""); setBatchPlaceResults([]); } }}
-                  placeholder="Search for a place…"
-                  className="w-full px-3 py-1.5 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-sm rounded-md outline-none placeholder:text-neutral-400 border border-neutral-200 dark:border-neutral-600 focus:border-neutral-400"
-                />
-                {isBatchSearching && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs">…</span>
-                )}
-                {batchPlaceResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-lg">
-                    {batchPlaceResults.map((r, i) => (
+                {recentPlaces.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {recentPlaces.map(r => (
                       <button
-                        key={i}
+                        key={r.name}
                         type="button"
-                        onClick={() => applyBatchPlace(r)}
-                        disabled={isBatchSaving}
-                        className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors border-t border-neutral-100 dark:border-neutral-700 first:border-t-0 disabled:opacity-40"
+                        onClick={() => setPendingBatchPlace(r)}
+                        className="px-2.5 py-1 bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 text-xs rounded-full border border-neutral-200 dark:border-neutral-600 transition-colors truncate max-w-[140px]"
                       >
-                        <span className="text-neutral-800 dark:text-neutral-200 text-sm block truncate">{r.name}</span>
-                        {r.country && <span className="text-neutral-400 text-xs">{r.country}</span>}
+                        {r.name}
                       </button>
                     ))}
                   </div>
                 )}
-              </div>
 
-              {isBatchSaving && (
-                <span className="text-xs text-neutral-400 dark:text-neutral-500 shrink-0">Adding place…</span>
-              )}
-            </div>
+                <div className="relative flex-1 min-w-[160px]">
+                  <input
+                    value={batchPlaceQuery}
+                    onChange={e => handleBatchQueryChange(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Escape") { setBatchPlaceQuery(""); setBatchPlaceResults([]); } }}
+                    placeholder="Search for a place…"
+                    className="w-full px-3 py-1.5 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-sm rounded-md outline-none placeholder:text-neutral-400 border border-neutral-200 dark:border-neutral-600 focus:border-neutral-400"
+                  />
+                  {isBatchSearching && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs">…</span>
+                  )}
+                  {batchPlaceResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-lg">
+                      {batchPlaceResults.map((r, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => { setPendingBatchPlace(r); setBatchPlaceResults([]); setBatchPlaceQuery(""); }}
+                          className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors border-t border-neutral-100 dark:border-neutral-700 first:border-t-0"
+                        >
+                          <span className="text-neutral-800 dark:text-neutral-200 text-sm block truncate">{r.name}</span>
+                          {r.country && <span className="text-neutral-400 text-xs">{r.country}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 truncate">
+                  {pendingBatchPlace.name}
+                </p>
+                <div className="rounded overflow-hidden" style={{ height: "180px" }}>
+                  <MapContainer
+                    center={[pendingBatchPlace.lat, pendingBatchPlace.lng]}
+                    zoom={10}
+                    scrollWheelZoom={true}
+                    style={{ height: "100%", width: "100%" }}
+                  >
+                    <MapResizeFix />
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker
+                      position={[pendingBatchPlace.lat, pendingBatchPlace.lng]}
+                      draggable={true}
+                      eventHandlers={{
+                        dragend(e) {
+                          const ll = e.target.getLatLng();
+                          setPendingBatchPlace(prev => prev ? { ...prev, lat: ll.lat, lng: ll.lng } : null);
+                        },
+                      }}
+                    />
+                  </MapContainer>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => applyBatchPlace(pendingBatchPlace)}
+                    disabled={isBatchSaving}
+                    className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-200 hover:bg-neutral-700 dark:hover:bg-neutral-100 text-white dark:text-neutral-900 text-xs rounded-md transition-colors disabled:opacity-40"
+                  >
+                    {isBatchSaving ? "Saving…" : "Place these memories here"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingBatchPlace(null)}
+                    className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+                  >
+                    Choose a different place
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -411,7 +550,7 @@ export default function TravelYourWorld() {
       {selectedCluster && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setSelectedCluster(null)}
+          onClick={closeClusterOverlay}
         >
           <div
             className="relative w-full max-w-3xl max-h-[85vh] mx-4 rounded-2xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden"
@@ -419,22 +558,196 @@ export default function TravelYourWorld() {
           >
             {/* Header */}
             <div className="flex items-start justify-between p-5 border-b border-neutral-100 dark:border-gray-800 shrink-0">
-              <div>
+              <div className="flex-1 min-w-0 mr-3">
                 <p className="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-0.5">Place</p>
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 leading-tight">
-                  {selectedCluster.label}
-                </h2>
-                <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">
-                  {selectedCluster.photos.length} {selectedCluster.photos.length === 1 ? "memory" : "memories"} here
-                </p>
+
+                {!editingClusterLabel ? (
+                  <div className="group/label flex items-baseline gap-1.5">
+                    <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 leading-tight truncate">
+                      {selectedCluster.label}
+                    </h2>
+                    <button
+                      onClick={() => {
+                        setEditingClusterLabel(true);
+                        setClusterLabelInput(selectedCluster.label);
+                        setEditingClusterPlace(false);
+                        setPendingClusterPlace(null);
+                      }}
+                      title="Rename place"
+                      className="opacity-0 group-hover/label:opacity-50 hover:!opacity-100 text-neutral-400 transition-opacity shrink-0"
+                    >
+                      <Tag className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      autoFocus
+                      value={clusterLabelInput}
+                      onChange={e => setClusterLabelInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); applyClusterLabel(clusterLabelInput); }
+                        if (e.key === "Escape") { setEditingClusterLabel(false); setClusterLabelInput(""); }
+                      }}
+                      placeholder="Place name…"
+                      className="text-lg font-semibold bg-transparent border-b border-neutral-300 dark:border-neutral-600 outline-none w-full text-neutral-900 dark:text-neutral-100 leading-tight placeholder:text-neutral-400 placeholder:font-normal"
+                    />
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <button
+                        onClick={() => applyClusterLabel(clusterLabelInput)}
+                        disabled={isSavingLabel}
+                        className="text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        {isSavingLabel ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => { setEditingClusterLabel(false); setClusterLabelInput(""); }}
+                        className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!editingClusterLabel && (
+                  <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">
+                    {selectedCluster.photos.length} {selectedCluster.photos.length === 1 ? "memory" : "memories"} here
+                  </p>
+                )}
               </div>
-              <button
-                onClick={() => setSelectedCluster(null)}
-                className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-gray-800 transition-colors text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 shrink-0"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => {
+                    setEditingClusterPlace(v => !v);
+                    setEditingClusterLabel(false);
+                    setClusterLabelInput("");
+                  }}
+                  title="Change place"
+                  className={`p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-gray-800 transition-colors hover:text-neutral-700 dark:hover:text-neutral-200 ${editingClusterPlace ? "text-neutral-700 dark:text-neutral-200" : "text-neutral-400 opacity-60 hover:opacity-100"}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={closeClusterOverlay}
+                  className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-gray-800 transition-colors text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
+
+            {/* Change place sub-panel */}
+            {editingClusterPlace && (
+              <div className="shrink-0 border-b border-neutral-100 dark:border-gray-800 px-5 py-4 bg-neutral-50 dark:bg-gray-800/50">
+                {!pendingClusterPlace ? (
+                  <>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+                      Choose a different place for all memories here
+                    </p>
+
+                    {recentPlaces.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {recentPlaces.map(r => (
+                          <button
+                            key={r.name}
+                            type="button"
+                            onClick={() => setPendingClusterPlace(r)}
+                            className="px-2.5 py-1 bg-white dark:bg-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 text-xs rounded-full border border-neutral-200 dark:border-neutral-600 transition-colors truncate max-w-[140px]"
+                          >
+                            {r.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <input
+                        value={clusterPlaceQuery}
+                        onChange={e => handleClusterQueryChange(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Escape") { setClusterPlaceQuery(""); setClusterPlaceResults([]); } }}
+                        placeholder="Search for a place…"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-sm rounded-md outline-none placeholder:text-neutral-400 border border-neutral-200 dark:border-neutral-600 focus:border-neutral-400"
+                      />
+                      {isClusterSearching && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs">…</span>
+                      )}
+                      {clusterPlaceResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-lg">
+                          {clusterPlaceResults.map((r, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { setPendingClusterPlace(r); setClusterPlaceResults([]); setClusterPlaceQuery(""); }}
+                              className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors border-t border-neutral-100 dark:border-neutral-700 first:border-t-0"
+                            >
+                              <span className="text-neutral-800 dark:text-neutral-200 text-sm block truncate">{r.name}</span>
+                              {r.country && <span className="text-neutral-400 text-xs">{r.country}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center mt-2">
+                      <button
+                        onClick={() => { setEditingClusterPlace(false); setClusterPlaceQuery(""); setClusterPlaceResults([]); setPendingClusterPlace(null); }}
+                        className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors ml-auto"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 mb-3 truncate">
+                      {pendingClusterPlace.name}
+                    </p>
+                    <div className="rounded overflow-hidden mb-3" style={{ height: "180px" }}>
+                      <MapContainer
+                        center={[pendingClusterPlace.lat, pendingClusterPlace.lng]}
+                        zoom={10}
+                        scrollWheelZoom={true}
+                        style={{ height: "100%", width: "100%" }}
+                      >
+                        <MapResizeFix />
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker
+                          position={[pendingClusterPlace.lat, pendingClusterPlace.lng]}
+                          draggable={true}
+                          eventHandlers={{
+                            dragend(e) {
+                              const ll = e.target.getLatLng();
+                              setPendingClusterPlace(prev => prev ? { ...prev, lat: ll.lat, lng: ll.lng } : null);
+                            },
+                          }}
+                        />
+                      </MapContainer>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => applyClusterReplace(pendingClusterPlace)}
+                        disabled={isClusterSaving}
+                        className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-200 hover:bg-neutral-700 dark:hover:bg-neutral-100 text-white dark:text-neutral-900 text-xs rounded-md transition-colors disabled:opacity-40"
+                      >
+                        {isClusterSaving ? "Changing place…" : "Place these memories here"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingClusterPlace(null)}
+                        className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+                      >
+                        Choose a different place
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Photos */}
             <div className="flex-1 overflow-y-auto p-4">

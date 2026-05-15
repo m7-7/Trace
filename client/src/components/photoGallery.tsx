@@ -164,35 +164,36 @@ export function PhotoGallery({
   
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-neutral-700">
-          {albumId ? "Album Photos" : folderId ? (folderName ?? "Folder Photos") : favoritesOnly ? "Favorite Photos" : "All Photos"}
-        </h2>
-        
-        {/* Filter Controls — hidden in folder-scoped view */}
-        {!folderId && <div className="flex items-center space-x-2">
-          <Select value={timeFilter} onValueChange={setTimeFilter}>
-            <SelectTrigger className="w-[140px] h-9">
-              <SelectValue placeholder="All Time" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-            </SelectContent>
-          </Select>
+      {!folderId && (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-neutral-700">
+            {albumId ? "Album Photos" : favoritesOnly ? "Favorite Photos" : "All Photos"}
+          </h2>
 
-          <button className="p-1.5 rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50" title="View options">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-          </button>
-        </div>}
-      </div>
+          <div className="flex items-center space-x-2">
+            <Select value={timeFilter} onValueChange={setTimeFilter}>
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="All Time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <button className="p-1.5 rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50" title="View options">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Photo Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

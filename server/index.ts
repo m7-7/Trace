@@ -1,10 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { buildSessionMiddleware } from "./auth";
-import { ensureUploadsDir } from "./paths";
+import { ensureUploadsDir, resolveDbPath, ensureDataDir, resolveMigrationsDir } from "./paths";
 import path from "path";
 import { execSync } from "child_process";
 import sharp from "sharp";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
 const app = express();
 app.use(express.json());
@@ -94,6 +97,20 @@ function logSharpDiagnostics() {
 }
 
 (async () => {
+  // Run migrations before any route handler can query the DB.
+  const dbPath = resolveDbPath();
+  ensureDataDir(dbPath);
+  const migrationDb = new Database(dbPath);
+  try {
+    migrate(drizzle(migrationDb), { migrationsFolder: resolveMigrationsDir() });
+    log("Database migrations applied.");
+  } catch (err: any) {
+    log(`Migration failed: ${err.message}`);
+    process.exit(1);
+  } finally {
+    migrationDb.close();
+  }
+
   ensureUploadsDir();
   logSharpDiagnostics();
   const server = await registerRoutes(app);
