@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
+import { getMemoryDate } from "@/lib/utils";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { PhotoCard } from "@/components/photoCard";
@@ -73,24 +74,20 @@ export default function Favorites() {
       if (timeFilter === "year") start.setFullYear(now.getFullYear() - 1);
       if (timeFilter === "month") start.setMonth(now.getMonth() - 1);
       if (timeFilter === "week") start.setDate(now.getDate() - 7);
-      result = result.filter((p) => new Date(p.createdAt) >= start);
+      result = result.filter((p) => getMemoryDate(p) >= start);
     }
 
     result.sort((a, b) => {
       switch (sortBy) {
         case "date-asc":
-          return (
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
+          return getMemoryDate(a).getTime() - getMemoryDate(b).getTime();
         case "name-asc":
           return (a.fileName || "").localeCompare(b.fileName || "");
         case "name-desc":
           return (b.fileName || "").localeCompare(a.fileName || "");
         case "date-desc":
         default:
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          return getMemoryDate(b).getTime() - getMemoryDate(a).getTime();
       }
     });
 

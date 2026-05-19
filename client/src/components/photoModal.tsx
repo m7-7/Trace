@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag, RotateCw, MapPin } from "lucide-react";
+import { getMemoryDate, hasKnownDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
@@ -274,7 +275,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
     .replace(/_/g, " ")
     .trim()) || current.fileName;
 
-  const dateLabel = format(new Date(current.createdAt), "MMMM d, yyyy");
+  const dateLabel = format(getMemoryDate(current), "MMMM d, yyyy");
   const fileSizeLabel = current.fileSize
     ? current.fileSize >= 1024 * 1024 * 1024
       ? `${(current.fileSize / 1024 / 1024 / 1024).toFixed(2)} GB`
@@ -369,7 +370,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
             <div className="flex items-start gap-2.5">
               <Calendar className="h-4 w-4 text-neutral-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-neutral-400 text-xs mb-0.5">Date taken</p>
+                <p className="text-neutral-400 text-xs mb-0.5">{hasKnownDate(current) ? "Photo date" : "Added"}</p>
                 <p className="text-white">{dateLabel}</p>
               </div>
             </div>

@@ -23,6 +23,17 @@ import {
 import { eq, and, between, like, or, desc, sql, inArray, isNull, isNotNull, count } from "drizzle-orm";
 import { IStorage, RecentPlace } from "./storage";
 
+// Memory-date semantics:
+//   takenAt   = when the memory likely happened (EXIF DateTimeOriginal / CreateDate)
+//   createdAt = when Trace imported or discovered the file (filesystem birthtime / now)
+// COALESCE preserves legacy rows and URL-imported photos that carry no EXIF date.
+const MEMORY_DATE = sql`COALESCE(${photos.takenAt}, ${photos.createdAt})`;
+const memoryDateDesc = sql`${MEMORY_DATE} DESC`;
+
+function memoryDateBetween(startDate: Date, endDate: Date) {
+  return sql`${MEMORY_DATE} BETWEEN ${Math.floor(startDate.getTime() / 1000)} AND ${Math.floor(endDate.getTime() / 1000)}`;
+}
+
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: number): Promise<User | undefined> {
@@ -44,11 +55,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Photo operations
-  async getPhotos(limit = 50, offset = 0): Promise<Photo[]> {
+  async getPhotos(limit = 50, offset = 0, startDate?: Date, endDate?: Date): Promise<Photo[]> {
+    const dateCondition = (startDate && endDate) ? memoryDateBetween(startDate, endDate) : undefined;
+
     return await db
       .select()
       .from(photos)
-      .orderBy(desc(photos.createdAt))
+      .where(dateCondition)
+      .orderBy(memoryDateDesc)
       .limit(limit)
       .offset(offset);
   }
@@ -58,7 +72,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(photos)
       .where(eq(photos.favorite, true))
-      .orderBy(desc(photos.createdAt));
+      .orderBy(memoryDateDesc);
   }
 
   async getPhotoById(id: number): Promise<Photo | undefined> {
@@ -70,8 +84,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(photos)
-      .where(between(photos.createdAt, startDate, endDate))
-      .orderBy(desc(photos.createdAt));
+      .where(memoryDateBetween(startDate, endDate))
+      .orderBy(memoryDateDesc);
   }
 
   async getPhotosByTags(tags: string[]): Promise<Photo[]> {
@@ -89,12 +103,10 @@ export class DatabaseStorage implements IStorage {
   async searchPhotos(terms: string[], startDate?: Date, endDate?: Date): Promise<Photo[]> {
     const whereConditions = [];
 
-    // Add date range filter if provided
     if (startDate && endDate) {
-      whereConditions.push(between(photos.createdAt, startDate, endDate));
+      whereConditions.push(memoryDateBetween(startDate, endDate));
     }
 
-    // Add search terms filters if provided
     if (terms.length > 0) {
       const termConditions = terms.map(term => {
         const likeTerm = `%${term.toLowerCase()}%`;
@@ -104,22 +116,14 @@ export class DatabaseStorage implements IStorage {
           sql`exists (select 1 from json_each(${photos.contentTags}) where lower(json_each.value) like ${likeTerm})`
         );
       });
-      
       whereConditions.push(or(...termConditions));
-    }
-
-    if (whereConditions.length > 0) {
-      return await db
-        .select()
-        .from(photos)
-        .where(and(...whereConditions))
-        .orderBy(desc(photos.createdAt));
     }
 
     return await db
       .select()
       .from(photos)
-      .orderBy(desc(photos.createdAt));
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .orderBy(memoryDateDesc);
   }
 
   async createPhoto(insertPhoto: InsertPhoto): Promise<Photo> {
@@ -201,7 +205,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(photos)
       .where(sql`${photos.filePath} LIKE ${prefix}`)
-      .orderBy(desc(photos.createdAt));
+      .orderBy(memoryDateDesc);
   }
 
   async getRecentPlaces(): Promise<RecentPlace[]> {
@@ -329,7 +333,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(photos)
       .where(inArray(photos.id, photoIds.map(p => p.photoId)))
-      .orderBy(desc(photos.createdAt));
+      .orderBy(memoryDateDesc);
   }
 
   async createAlbum(insertAlbum: InsertAlbum): Promise<Album> {
