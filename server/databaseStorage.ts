@@ -197,14 +197,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(photos.createdAt));
   }
 
-  async getPhotosByFolder(folderId: number): Promise<Photo[]> {
+  async getPhotosByFolder(folderId: number, startDate?: Date, endDate?: Date): Promise<Photo[]> {
     const folder = await this.getFolderById(folderId);
     if (!folder) return [];
     const prefix = (folder.path.endsWith('/') ? folder.path : folder.path + '/') + '%';
+    const folderCondition = sql`${photos.filePath} LIKE ${prefix}`;
+    const dateCondition = (startDate && endDate) ? memoryDateBetween(startDate, endDate) : undefined;
     return await db
       .select()
       .from(photos)
-      .where(sql`${photos.filePath} LIKE ${prefix}`)
+      .where(dateCondition ? and(folderCondition, dateCondition) : folderCondition)
       .orderBy(memoryDateDesc);
   }
 

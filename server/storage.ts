@@ -30,7 +30,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   // Photo operations
-  getPhotos(limit?: number, offset?: number): Promise<Photo[]>;
+  getPhotos(limit?: number, offset?: number, startDate?: Date, endDate?: Date): Promise<Photo[]>;
   getFavoritePhotos(): Promise<Photo[]>;
   getPhotoById(id: number): Promise<Photo | undefined>;
   getPhotosByDate(startDate: Date, endDate: Date): Promise<Photo[]>;
@@ -50,7 +50,7 @@ export interface IStorage {
   getExistingFilePaths(paths: string[]): Promise<Set<string>>;
   getPlacedPhotos(): Promise<Photo[]>;
   getUnplacedPhotos(): Promise<Photo[]>;
-  getPhotosByFolder(folderId: number): Promise<Photo[]>;
+  getPhotosByFolder(folderId: number, startDate?: Date, endDate?: Date): Promise<Photo[]>;
   getRecentPlaces(): Promise<RecentPlace[]>;
 
   // Folder operations
@@ -139,11 +139,16 @@ export class MemStorage implements IStorage {
   }
 
   // Photo methods
-  async getPhotos(limit = 50, offset = 0): Promise<Photo[]> {
-    const allPhotos = Array.from(this.photos.values());
-    return allPhotos
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(offset, offset + limit);
+  async getPhotos(limit = 50, offset = 0, startDate?: Date, endDate?: Date): Promise<Photo[]> {
+    let all = Array.from(this.photos.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    if (startDate && endDate) {
+      all = all.filter(p => {
+        const d = p.takenAt ?? p.createdAt;
+        return d >= startDate && d <= endDate;
+      });
+    }
+    return all.slice(offset, offset + limit);
   }
 
   async getFavoritePhotos(): Promise<Photo[]> {
@@ -174,11 +179,12 @@ export class MemStorage implements IStorage {
     endDate?: Date,
   ): Promise<Photo[]> {
     return Array.from(this.photos.values()).filter((photo) => {
-      // Check date range if provided
+      // Check date range using memory-time: takenAt when available, else createdAt
+      const memDate = photo.takenAt ?? photo.createdAt;
       const dateMatch =
         !startDate ||
         !endDate ||
-        (photo.createdAt >= startDate && photo.createdAt <= endDate);
+        (memDate >= startDate && memDate <= endDate);
 
       if (!dateMatch) return false;
 
@@ -225,6 +231,7 @@ export class MemStorage implements IStorage {
       journalEntry: insertPhoto.journalEntry || null,
       indexed: insertPhoto.indexed || false,
       rotation: insertPhoto.rotation ?? 0,
+      takenAt: insertPhoto.takenAt ?? null,
     };
     this.photos.set(id, photo);
     return photo;
@@ -250,13 +257,23 @@ export class MemStorage implements IStorage {
     return Array.from(this.photos.values()).filter(p => p.coordinates == null);
   }
 
-  async getPhotosByFolder(folderId: number): Promise<Photo[]> {
+  async getPhotosByFolder(folderId: number, startDate?: Date, endDate?: Date): Promise<Photo[]> {
     const folder = this.folders.get(folderId);
     if (!folder) return [];
     const prefix = folder.path.endsWith('/') ? folder.path : folder.path + '/';
-    return Array.from(this.photos.values())
-      .filter(p => p.filePath.startsWith(prefix))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    let result = Array.from(this.photos.values())
+      .filter(p => p.filePath.startsWith(prefix));
+    if (startDate && endDate) {
+      result = result.filter(p => {
+        const d = p.takenAt ?? p.createdAt;
+        return d >= startDate && d <= endDate;
+      });
+    }
+    return result.sort((a, b) => {
+      const da = a.takenAt ?? a.createdAt;
+      const db = b.takenAt ?? b.createdAt;
+      return db.getTime() - da.getTime();
+    });
   }
 
   async getRecentPlaces(): Promise<RecentPlace[]> {

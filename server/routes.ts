@@ -7,6 +7,7 @@ import fs from "fs";
 import { execSync, execFile as execFileCb } from "child_process";
 import { promisify } from "util";
 const execFile = promisify(execFileCb);
+import exifr from "exifr";
 import { promises as dnsPromises } from "dns";
 import { analyzeImage, initializeModel, modelStatus } from "./imageRecognition";
 import sharp from "sharp";
@@ -293,18 +294,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all photos with pagination
+  // Get all photos with pagination and optional date range
   app.get("/api/photos", async (req: Request, res: Response) => {
     try {
       if (req.query.folderId) {
         const folderId = parseInt(req.query.folderId as string);
         if (isNaN(folderId)) return res.status(400).json({ message: "Invalid folderId" });
-        const photos = await storage.getPhotosByFolder(folderId);
+        let startDate: Date | undefined;
+        let endDate: Date | undefined;
+        if (req.query.startDate) startDate = new Date(req.query.startDate as string);
+        if (req.query.endDate) endDate = new Date(req.query.endDate as string);
+        const photos = await storage.getPhotosByFolder(folderId, startDate, endDate);
         return res.json(photos);
       }
       const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
       const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
-      const photos = await storage.getPhotos(limit, offset);
+
+      let startDate: Date | undefined;
+      let endDate: Date | undefined;
+      if (req.query.startDate) startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) endDate = new Date(req.query.endDate as string);
+
+      const photos = await storage.getPhotos(limit, offset, startDate, endDate);
       res.json(photos);
     } catch (error) {
       console.error("Error fetching photos:", error);
@@ -511,9 +522,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contentTags = raw.filter(t => !t.startsWith("error_"));
           }
 
+          // Extract capture date from EXIF: DateTimeOriginal is preferred (in-camera capture
+          // time), CreateDate is a secondary fallback present on some devices that omit the
+          // primary tag. Both are parsed in one pass. Falls back to filesystem date on any
+          // failure or absence.
+          let takenAt: Date = metadata.createdAt;
+          if (metadata.fileType === "image") {
+            try {
+              const exif = await exifr.parse(filePath, { pick: ["DateTimeOriginal", "CreateDate"] });
+              if (exif?.DateTimeOriginal instanceof Date) {
+                takenAt = exif.DateTimeOriginal;
+              } else if (exif?.CreateDate instanceof Date) {
+                takenAt = exif.CreateDate;
+              }
+            } catch {
+              // Non-fatal: filesystem date remains the fallback
+            }
+          }
+
           // Create photo record
           const photoData = {
             ...metadata,
+            takenAt,
             width: 0, // These would be extracted from the actual image
             height: 0,
             favorite: false,

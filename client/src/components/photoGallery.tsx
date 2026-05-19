@@ -60,9 +60,13 @@ export function PhotoGallery({
     queryParams.category = category;
   }
 
-  // For folder-scoped view
+  // For folder-scoped view — preserve active date filter
   if (folderId !== undefined) {
     queryParams = { folderId: folderId.toString() };
+    if (dateRange) {
+      queryParams.startDate = dateRange.startDate;
+      queryParams.endDate = dateRange.endDate;
+    }
     queryKey = ['/api/photos'];
   }
 
@@ -162,8 +166,23 @@ export function PhotoGallery({
     );
   }
   
+  const timeFilterSelect = (
+    <Select value={timeFilter} onValueChange={setTimeFilter}>
+      <SelectTrigger className="w-[140px] h-9">
+        <SelectValue placeholder="All Time" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Time</SelectItem>
+        <SelectItem value="year">This Year</SelectItem>
+        <SelectItem value="month">This Month</SelectItem>
+        <SelectItem value="week">This Week</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <section>
+      {/* Non-folder views: title + filter */}
       {!folderId && (
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-neutral-700">
@@ -171,17 +190,7 @@ export function PhotoGallery({
           </h2>
 
           <div className="flex items-center space-x-2">
-            <Select value={timeFilter} onValueChange={setTimeFilter}>
-              <SelectTrigger className="w-[140px] h-9">
-                <SelectValue placeholder="All Time" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="year">This Year</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-              </SelectContent>
-            </Select>
+            {timeFilterSelect}
 
             <button className="p-1.5 rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50" title="View options">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -192,6 +201,13 @@ export function PhotoGallery({
               </svg>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Folder view: filter only (folder title rendered by parent page) */}
+      {folderId !== undefined && (
+        <div className="flex justify-end mb-4">
+          {timeFilterSelect}
         </div>
       )}
 
