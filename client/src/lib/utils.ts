@@ -28,12 +28,27 @@ export function formatMemoryDateFull(photo: { takenAt: Date | null; createdAt: D
 
 export function groupPhotosByYear<T extends { takenAt: Date | null; createdAt: Date }>(
   photos: T[]
-): { year: string; photos: T[] }[] {
-  const groups = new Map<string, T[]>();
+): { year: string | null; photos: T[] }[] {
+  const dated = new Map<string, T[]>();
+  const undated: T[] = [];
+
   for (const photo of photos) {
-    const year = String(getMemoryYear(photo));
-    if (!groups.has(year)) groups.set(year, []);
-    groups.get(year)!.push(photo);
+    if (hasKnownDate(photo)) {
+      const year = String(getMemoryYear(photo));
+      if (!dated.has(year)) dated.set(year, []);
+      dated.get(year)!.push(photo);
+    } else {
+      undated.push(photo);
+    }
   }
-  return Array.from(groups.entries()).map(([year, yearPhotos]) => ({ year, photos: yearPhotos }));
+
+  const groups: { year: string | null; photos: T[] }[] = Array.from(dated.entries()).map(
+    ([year, yearPhotos]) => ({ year, photos: yearPhotos })
+  );
+
+  if (undated.length > 0) {
+    groups.push({ year: null, photos: undated });
+  }
+
+  return groups;
 }

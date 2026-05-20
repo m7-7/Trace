@@ -216,10 +216,10 @@ export function PhotoGallery({
 
       {/* Photo grid — grouped by year */}
       {photoGroups.map(({ year, photos: yearPhotos }, i) => (
-        <div key={year} className={i > 0 ? "mt-10" : "mt-1"}>
+        <div key={year ?? "undated"} className={i > 0 ? "mt-10" : "mt-1"}>
           <div className="sticky top-0 z-10 flex items-center gap-3 mb-3 py-2 bg-neutral-50">
             <span className="text-xs font-medium text-neutral-400 tracking-[0.15em] uppercase select-none">
-              {year}
+              {year ?? "Recently added"}
             </span>
             <div className="flex-1 border-t border-neutral-100" />
           </div>
