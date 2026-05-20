@@ -2,9 +2,8 @@ import { Photo } from "@shared/schema";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
 import { Star } from "lucide-react";
-import { getMemoryDate } from "@/lib/utils";
+import { formatMemoryDate } from "@/lib/utils";
 import { PhotoModal } from "./photoModal";
 
 interface PhotoCardProps {
@@ -47,7 +46,7 @@ export function PhotoCard({ photo, allPhotos }: PhotoCardProps) {
     .replace(/\.(jpg|jpeg|png|heic|webp)$/i, "")
     .replace(/_/g, " ");
 
-  const dateLabel = format(getMemoryDate(photo), "MMM d, yyyy");
+  const dateLabel = formatMemoryDate(photo);
 
   return (
     <>

@@ -7,8 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { Photo } from "@shared/schema";
-import { format } from "date-fns";
-import { getMemoryDate } from "@/lib/utils";
+import { formatMemoryDate } from "@/lib/utils";
 
 interface AddPhotosToAlbumModalProps {
   albumId: number;
@@ -108,7 +107,7 @@ export function AddPhotosToAlbumModal({ albumId, albumName, existingPhotoIds, on
                         </div>
                       )}
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 opacity-0 hover:opacity-100 transition-opacity">
-                        <p className="text-white text-[10px]">{format(getMemoryDate(photo), "MMM d, yyyy")}</p>
+                        <p className="text-white text-[10px]">{formatMemoryDate(photo)}</p>
                       </div>
                     </div>
                   );

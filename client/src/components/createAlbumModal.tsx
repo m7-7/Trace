@@ -10,8 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Photo } from "@shared/schema";
-import { format } from "date-fns";
-import { getMemoryDate } from "@/lib/utils";
+import { formatMemoryDate } from "@/lib/utils";
 
 type PlaceResult = { name: string; country: string; lat: number; lng: number };
 type RecentPlace = { name: string; lat: number; lng: number };
@@ -245,7 +244,7 @@ export function CreateAlbumModal({ onClose }: CreateAlbumModalProps) {
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                   {filtered.map(photo => {
                     const selected = selectedIds.has(photo.id);
-                    const dateLabel = format(getMemoryDate(photo), "MMM d, yyyy");
+                    const dateLabel = formatMemoryDate(photo);
                     return (
                       <div
                         key={photo.id}

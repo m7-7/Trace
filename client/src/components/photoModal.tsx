@@ -1,9 +1,8 @@
 import { Photo } from "@shared/schema";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { X, ChevronLeft, ChevronRight, Star, Calendar, HardDrive, Tag, RotateCw, MapPin } from "lucide-react";
-import { getMemoryDate, hasKnownDate } from "@/lib/utils";
+import { formatMemoryDateFull, hasKnownDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
@@ -275,7 +274,7 @@ export function PhotoModal({ photo, allPhotos, onClose, isFavorite, onToggleFavo
     .replace(/_/g, " ")
     .trim()) || current.fileName;
 
-  const dateLabel = format(getMemoryDate(current), "MMMM d, yyyy");
+  const dateLabel = formatMemoryDateFull(current);
   const fileSizeLabel = current.fileSize
     ? current.fileSize >= 1024 * 1024 * 1024
       ? `${(current.fileSize / 1024 / 1024 / 1024).toFixed(2)} GB`
