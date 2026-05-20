@@ -6,8 +6,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function getMemoryDate(photo: { takenAt: Date | null; createdAt: Date }): Date {
-  return photo.takenAt ?? photo.createdAt;
+export function getMemoryDate(photo: { takenAt: Date | string | number | null; createdAt: Date | string | number }): Date {
+  const raw = photo.takenAt ?? photo.createdAt;
+  return raw instanceof Date ? raw : new Date(raw as string | number);
 }
 
 export function hasKnownDate(photo: { takenAt: Date | null }): boolean {
