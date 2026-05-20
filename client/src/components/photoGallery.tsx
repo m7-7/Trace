@@ -214,20 +214,37 @@ export function PhotoGallery({
         </div>
       )}
 
-      {/* Photo grid — grouped by year */}
-      {photoGroups.map(({ year, photos: yearPhotos }, i) => (
-        <div key={year ?? "undated"} className={i > 0 ? "mt-10" : "mt-1"}>
+      {/* Photo grid — grouped by year, then month */}
+      {photoGroups.map((group, i) => (
+        <div key={group.year ?? "undated"} className={i > 0 ? "mt-10" : "mt-1"}>
+          {/* Sticky year header */}
           <div className="sticky top-0 z-10 flex items-center gap-3 mb-3 py-2 bg-neutral-50">
             <span className="text-xs font-medium text-neutral-400 tracking-[0.15em] uppercase select-none">
-              {year ?? "Recently added"}
+              {group.year ?? "Recently added"}
             </span>
             <div className="flex-1 border-t border-neutral-100" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {yearPhotos.map(photo => (
-              <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
-            ))}
-          </div>
+
+          {group.year !== null ? (
+            /* Known-date: render month subgroups */
+            group.months.map(({ label, photos: monthPhotos }, j) => (
+              <div key={label} className={j > 0 ? "mt-6" : ""}>
+                <p className="text-xs font-normal text-neutral-400 mb-2 select-none">{label}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {monthPhotos.map(photo => (
+                    <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            /* Undated: flat grid, no month subgrouping */
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {group.photos.map(photo => (
+                <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
+              ))}
+            </div>
+          )}
         </div>
       ))}
       
