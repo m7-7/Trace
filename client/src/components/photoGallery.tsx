@@ -5,6 +5,7 @@ import { PhotoCard } from "./photoCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { groupPhotosByYear } from "@/lib/utils";
 
 interface PhotoGalleryProps {
   searchQuery?: string;
@@ -85,9 +86,11 @@ export function PhotoGallery({
   });
   
   // Apply favorites filter if requested
-  const filteredPhotos = favoritesOnly 
+  const filteredPhotos = favoritesOnly
     ? photos.filter(photo => photo.favorite)
     : photos;
+
+  const photoGroups = useMemo(() => groupPhotosByYear(filteredPhotos), [filteredPhotos]);
   
   const loadMore = () => {
     setLimit(prev => prev + 24);
@@ -211,12 +214,22 @@ export function PhotoGallery({
         </div>
       )}
 
-      {/* Photo Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {filteredPhotos.map(photo => (
-          <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
-        ))}
-      </div>
+      {/* Photo grid — grouped by year */}
+      {photoGroups.map(({ year, photos: yearPhotos }, i) => (
+        <div key={year} className={i > 0 ? "mt-10" : "mt-1"}>
+          <div className="sticky top-0 z-10 flex items-center gap-3 mb-3 py-2 bg-neutral-50">
+            <span className="text-xs font-medium text-neutral-400 tracking-[0.15em] uppercase select-none">
+              {year}
+            </span>
+            <div className="flex-1 border-t border-neutral-100" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {yearPhotos.map(photo => (
+              <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
+            ))}
+          </div>
+        </div>
+      ))}
       
       {/* Load More Button */}
       {filteredPhotos.length >= limit && (
