@@ -33,6 +33,7 @@ export const photos = sqliteTable("photos", {
   contentTags: text("content_tags", { mode: "json" }).$type<string[] | null>(), // Tags from image recognition
   indexed: integer("indexed", { mode: "boolean" }).default(false), // Whether the photo has been analyzed
   rotation: integer("rotation").default(0), // Manual rotation override: 0 | 90 | 180 | 270
+  takenAt: integer("taken_at", { mode: "timestamp" }), // EXIF DateTimeOriginal; null for URL imports and legacy rows
 });
 
 export const insertPhotoSchema = createInsertSchema(photos, {
