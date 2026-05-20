@@ -91,6 +91,14 @@ export function PhotoGallery({
     : photos;
 
   const photoGroups = useMemo(() => groupPhotosByYear(filteredPhotos), [filteredPhotos]);
+
+  const photoGrid = (photos: Photo[]) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      {photos.map(photo => (
+        <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
+      ))}
+    </div>
+  );
   
   const loadMore = () => {
     setLimit(prev => prev + 24);
@@ -226,24 +234,16 @@ export function PhotoGallery({
           </div>
 
           {group.year !== null ? (
-            /* Known-date: render month subgroups */
+            /* Known-date: month subgroups */
             group.months.map(({ label, photos: monthPhotos }, j) => (
               <div key={label} className={j > 0 ? "mt-6" : ""}>
-                <p className="text-xs font-normal text-neutral-400 mb-2 select-none">{label}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {monthPhotos.map(photo => (
-                    <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
-                  ))}
-                </div>
+                <p className="text-xs font-normal text-neutral-400 mb-3 select-none">{label}</p>
+                {photoGrid(monthPhotos)}
               </div>
             ))
           ) : (
-            /* Undated: flat grid, no month subgrouping */
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {group.photos.map(photo => (
-                <PhotoCard key={photo.id} photo={photo} allPhotos={filteredPhotos} />
-              ))}
-            </div>
+            /* Undated: flat, no month subgrouping */
+            photoGrid(group.photos)
           )}
         </div>
       ))}
